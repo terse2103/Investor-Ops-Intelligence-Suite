@@ -15,6 +15,8 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
+from google_play_scraper import Sort, reviews as gps_reviews
+from langdetect import detect
 from supabase import Client, create_client
 
 from app.config import settings
@@ -42,7 +44,6 @@ def _is_valid_review(text: str) -> bool:
     if len(words) <= 5:
         return False
     try:
-        from langdetect import detect
         return detect(text) == "en"
     except Exception:
         return False  # if detection fails, reject (safe default)
@@ -59,8 +60,6 @@ async def scrape_reviews() -> dict:
           "filtered_out": int,  # rejected by R-PULSE7 or date window
         }
     """
-    from google_play_scraper import Sort, reviews as gps_reviews
-
     # 1. Fetch raw reviews from Play Store
     raw_reviews, _ = await asyncio.to_thread(
         gps_reviews,
@@ -104,7 +103,7 @@ async def scrape_reviews() -> dict:
         rows.append({
             "play_review_id": r["reviewId"],
             "content": clean_content,
-            "score": r.get("score"),
+            "score": r.get("score") or 0,
             "at": r["at"].isoformat(),
         })
 

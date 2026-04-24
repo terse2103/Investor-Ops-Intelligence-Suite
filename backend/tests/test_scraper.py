@@ -99,14 +99,14 @@ async def test_scrape_reviews_counts_and_redact() -> None:
 
     with (
         patch(
-            "google_play_scraper.reviews",
+            "app.services.pulse.scraper.gps_reviews",
             return_value=(fake_reviews, None),
         ) as mock_gps,
         patch(
             "app.services.pulse.scraper._supabase",
             return_value=mock_supabase_client,
         ),
-        patch("langdetect.detect", side_effect=_fake_langdetect),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
     ):
         result = await scrape_reviews()
 
@@ -137,9 +137,9 @@ async def test_scrape_reviews_redact_called_on_accepted() -> None:
     mock_supabase_client.table.return_value = mock_table
 
     with (
-        patch("google_play_scraper.reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
         patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
-        patch("langdetect.detect", side_effect=_fake_langdetect),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
         patch("app.services.pulse.scraper.redact", wraps=lambda t: t) as mock_redact,
     ):
         result = await scrape_reviews()
@@ -164,9 +164,9 @@ async def test_scrape_reviews_all_filtered_out() -> None:
     mock_supabase_client.table.return_value = mock_table
 
     with (
-        patch("google_play_scraper.reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
         patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
-        patch("langdetect.detect", side_effect=_fake_langdetect),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
     ):
         result = await scrape_reviews()
 
@@ -186,15 +186,22 @@ async def test_scrape_reviews_audit_row_written() -> None:
 
     mock_insert_resp = MagicMock()
     mock_insert_resp.data = []
-    mock_table = MagicMock()
-    mock_table.insert.return_value.execute.return_value = mock_insert_resp
+
+    # Use per-table mocks so we can inspect the scrape_runs insert specifically
+    mock_reviews_table = MagicMock()
+    mock_scrape_runs_table = MagicMock()
+    mock_scrape_runs_table.insert.return_value.execute.return_value = mock_insert_resp
+
+    def _table_router(name: str) -> MagicMock:
+        return mock_scrape_runs_table if name == "scrape_runs" else mock_reviews_table
+
     mock_supabase_client = MagicMock()
-    mock_supabase_client.table.return_value = mock_table
+    mock_supabase_client.table.side_effect = _table_router
 
     with (
-        patch("google_play_scraper.reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
         patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
-        patch("langdetect.detect", side_effect=_fake_langdetect),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
     ):
         result = await scrape_reviews()
 
@@ -205,8 +212,9 @@ async def test_scrape_reviews_audit_row_written() -> None:
     ]
     assert len(scrape_runs_calls) == 1
 
-    # The inserted audit row must match the returned dict
-    insert_args = mock_table.insert.call_args_list[-1].args[0]
+    # Inspect the scrape_runs mock directly — not fragile index into shared mock
+    mock_scrape_runs_table.insert.assert_called_once()
+    insert_args = mock_scrape_runs_table.insert.call_args.args[0]
     assert insert_args["fetched"] == result["fetched"]
     assert insert_args["accepted"] == result["accepted"]
     assert insert_args["inserted"] == result["inserted"]
@@ -216,7 +224,7 @@ async def test_scrape_reviews_audit_row_written() -> None:
 def test_langdetect_exception_rejects_review() -> None:
     """When langdetect.detect raises, _is_valid_review must return False (safe default)."""
     long_text = "This is a review with more than five words total"
-    with patch("langdetect.detect", side_effect=Exception("failed")):
+    with patch("app.services.pulse.scraper.detect", side_effect=Exception("failed")):
         assert _is_valid_review(long_text) is False
 
 
@@ -236,15 +244,66 @@ async def test_scrape_reviews_old_reviews_filtered_by_date() -> None:
     mock_supabase_client.table.return_value = mock_table
 
     with (
-        patch("google_play_scraper.reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
         patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
-        patch("langdetect.detect", side_effect=_fake_langdetect),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
     ):
         result = await scrape_reviews()
 
     assert result["fetched"] == 2
     assert result["accepted"] == 1   # only VALID_EN_REVIEW_1 passes
     assert result["filtered_out"] == 1
+
+
+@pytest.mark.asyncio
+async def test_scrape_reviews_upsert_failure_propagates() -> None:
+    """When the upsert DB call raises, the exception must propagate out of scrape_reviews()."""
+    fake_reviews = [VALID_EN_REVIEW_1]
+
+    mock_table = MagicMock()
+    mock_table.upsert.return_value.execute.side_effect = Exception("db error")
+
+    mock_supabase_client = MagicMock()
+    mock_supabase_client.table.return_value = mock_table
+
+    with (
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
+    ):
+        with pytest.raises(Exception, match="db error"):
+            await scrape_reviews()
+
+
+@pytest.mark.asyncio
+async def test_review_with_null_date_filtered_out() -> None:
+    """A review with at=None must be excluded (counted in filtered_out, not accepted)."""
+    null_date_review = {
+        "reviewId": "r_null_date",
+        "content": "This is a long enough review with many words to pass the word count",
+        "score": 5,
+        "at": None,
+    }
+    fake_reviews = [null_date_review]
+
+    mock_insert_resp = MagicMock()
+    mock_insert_resp.data = []
+    mock_table = MagicMock()
+    mock_table.insert.return_value.execute.return_value = mock_insert_resp
+    mock_supabase_client = MagicMock()
+    mock_supabase_client.table.return_value = mock_table
+
+    with (
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
+    ):
+        result = await scrape_reviews()
+
+    assert result["fetched"] == 1
+    assert result["accepted"] == 0
+    assert result["filtered_out"] == 1
+    mock_table.upsert.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
