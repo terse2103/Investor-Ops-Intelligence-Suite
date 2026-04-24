@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from app.services.pulse.scraper import REVIEW_WINDOW_WEEKS, scrape_reviews
+from app.services.pulse.scraper import REVIEW_WINDOW_WEEKS, _is_valid_review, scrape_reviews
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ VALID_EN_REVIEW_2 = _make_review(
     score=4,
     days_ago=10,
 )
-# Too short (only 3 words) — filtered by _is_valid_review
+# Too short (only 2 words) — filtered by _is_valid_review
 SHORT_REVIEW = _make_review("r3", "Great app", score=5, days_ago=2)
 # Very old review — filtered by date window
 OLD_REVIEW = _make_review(
@@ -99,7 +99,7 @@ async def test_scrape_reviews_counts_and_redact() -> None:
 
     with (
         patch(
-            "app.services.pulse.scraper.gps_reviews" if False else "google_play_scraper.reviews",
+            "google_play_scraper.reviews",
             return_value=(fake_reviews, None),
         ) as mock_gps,
         patch(
@@ -109,6 +109,10 @@ async def test_scrape_reviews_counts_and_redact() -> None:
         patch("langdetect.detect", side_effect=_fake_langdetect),
     ):
         result = await scrape_reviews()
+
+    mock_gps.assert_called_once_with(
+        "in.indmoney", lang="en", country="in", sort=ANY, count=200
+    )
 
     assert result["fetched"] == 5
     assert result["accepted"] == 2
@@ -207,6 +211,13 @@ async def test_scrape_reviews_audit_row_written() -> None:
     assert insert_args["accepted"] == result["accepted"]
     assert insert_args["inserted"] == result["inserted"]
     assert insert_args["filtered_out"] == result["filtered_out"]
+
+
+def test_langdetect_exception_rejects_review() -> None:
+    """When langdetect.detect raises, _is_valid_review must return False (safe default)."""
+    long_text = "This is a review with more than five words total"
+    with patch("langdetect.detect", side_effect=Exception("failed")):
+        assert _is_valid_review(long_text) is False
 
 
 @pytest.mark.asyncio
