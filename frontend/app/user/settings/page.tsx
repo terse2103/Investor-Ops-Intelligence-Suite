@@ -1,12 +1,29 @@
 export default function SettingsPage() {
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <p className="mt-2 text-gray-600">
-        Notification email, used when the admin approves or rejects your
-        bookings.
-      </p>
-      <p className="mt-4 text-sm text-gray-500">Coming in Day 5.</p>
-    </main>
+    <div style={{ padding: "32px 28px" }}>
+      <header style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px" }}>
+          ⚙️ Settings
+        </h1>
+        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+          Notification email used when the admin approves or rejects your booking
+        </p>
+      </header>
+
+      <div
+        className="glass-card"
+        style={{ padding: 40, textAlign: "center", maxWidth: 520 }}
+      >
+        <div style={{ fontSize: 48, marginBottom: 14 }}>📧</div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 10px" }}>
+          Notification Email
+        </h2>
+        <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.65, margin: "0 0 20px" }}>
+          Save your email address here. The ops suite will send you one notification
+          when an admin approves or rejects your advisor booking.
+        </p>
+        <div className="badge badge-warning">⏳ Coming in Day 5</div>
+      </div>
+    </div>
   );
 }

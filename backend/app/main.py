@@ -1,17 +1,52 @@
 """FastAPI entrypoint for the Investor Ops & Intelligence Suite backend."""
+import logging
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api import approvals, health, pulse, rag, scrape
+from app.core.limiter import limiter
 from app.api import settings as settings_api
 from app.api import voice
 from app.config import settings
+
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Populate the RAG index on startup if empty (Render free tier disk is ephemeral).
+    # Skip in test mode to keep TestClient instantiation fast and offline.
+    if os.getenv("SKIP_STARTUP_INGEST") != "1":
+        try:
+            from app.core.retriever import get_retriever
+            from app.services.rag.corpus import NIPPON_INDIA_SCHEMES
+            from app.services.rag.ingest import ingest_sources
+
+            retriever = get_retriever()
+            if retriever.count() == 0:
+                n = await ingest_sources(NIPPON_INDIA_SCHEMES)
+                log.info("Startup ingest: %d chunks indexed", n)
+            else:
+                log.info("RAG index already populated: %d chunks", retriever.count())
+        except Exception as e:
+            log.warning("Startup ingest failed (proceeding with empty index): %s", e)
+    yield
+
 
 app = FastAPI(
     title="Investor Ops & Intelligence Suite",
     version="0.1.0",
     description="Backend for the 3-pillar fintech ops suite (RAG + Pulse + Voice).",
+    lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

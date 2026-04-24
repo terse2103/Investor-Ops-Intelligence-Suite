@@ -6,10 +6,10 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 
 ## Progress
 
-**Completed: 7 / 38 items → ~18%**
+**Completed: 15 / 38 items → ~39%** — Day 1 + Day 2 done.
 
 ```
-██████░░░░░░░░░░░░░░░░░░░░░░░░░░  18%
+████████████░░░░░░░░░░░░░░░░░░░░  39%
 ```
 
 > Update this bar as you check items. Percentage = (completed items / 38) × 100.
@@ -26,18 +26,18 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 - [x] Lock Day-1 decisions: RAG stack + monorepo layout + Render vs Railway
 - [x] Provision accounts: Supabase, Vapi, Vercel, Render, Google Cloud (OAuth consent), GitHub repo
 - [x] Scaffold monorepo: Next.js (`frontend/`), FastAPI (`backend/`), `evals/`, `docs/`
-- [ ] Supabase: create all 10 tables with RLS + seed admin/user accounts
-- [ ] Login flow working end-to-end (Next.js → Supabase Auth → role-gated routes)
+- [x] Supabase: create all 10 tables with RLS + seed admin/user accounts
+- [x] Login flow working end-to-end (Next.js → Supabase Auth → role-gated routes)
 
 ## Day 2 — M1 RAG Chatbot (Pillar A core)
 *Goal: user can ask MF questions and get cited, facts-only answers.*
 
-- [ ] Ingest INDMoney corpus (5-10 pages) into the vector store
-- [ ] Retriever + LLM answer composition with citations and "Last updated from sources"
-- [ ] PII guard middleware wired on LLM in/out
-- [ ] `/user/chatbot` route live end-to-end
-- [ ] 3 RAG eval cases written in `evals/rag-eval.md` and passing
-- [ ] 1 safety eval case (investment advice refusal) passing
+- [x] Ingest INDMoney corpus (5-10 pages) into the vector store
+- [x] Retriever + LLM answer composition with citations and "Last updated from sources"
+- [x] PII guard middleware wired on LLM in/out
+- [x] `/user/chatbot` route live end-to-end
+- [x] 3 RAG eval cases written in `evals/rag-eval.md` and passing
+- [x] 1 safety eval case (investment advice refusal) passing
 
 ## Day 3 — M2 Pulse + Fee Explainer (Pillar A complete + Pillar B foundation)
 *Goal: scraped reviews become a pulse; fee docs fold into the RAG index; Smart-Sync works.*
