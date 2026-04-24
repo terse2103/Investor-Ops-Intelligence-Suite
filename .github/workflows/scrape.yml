@@ -1,0 +1,21 @@
+name: Weekly Review Scrape
+
+on:
+  schedule:
+    # Every Monday 03:00 UTC (08:30 IST)
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  trigger-scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scrape endpoint
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SCRAPE_SHARED_SECRET: ${{ secrets.SCRAPE_SHARED_SECRET }}
+        run: |
+          curl -X POST "${BACKEND_URL}/api/scrape" \
+            -H "Content-Type: application/json" \
+            -H "x-scrape-secret: ${SCRAPE_SHARED_SECRET}" \
+            --fail --silent --show-error

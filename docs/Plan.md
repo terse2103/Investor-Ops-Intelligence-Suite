@@ -6,10 +6,10 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 
 ## Progress
 
-**Completed: 5 / 38 items → ~13%**
+**Completed: 7 / 38 items → ~18%**
 
 ```
-████░░░░░░░░░░░░░░░░░░░░░░░░░░░░  13%
+██████░░░░░░░░░░░░░░░░░░░░░░░░░░  18%
 ```
 
 > Update this bar as you check items. Percentage = (completed items / 38) × 100.
@@ -24,8 +24,8 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 - [x] `docs/EdgeCases.md` drafted
 - [x] `docs/Evals.md` drafted
 - [x] Lock Day-1 decisions: RAG stack + monorepo layout + Render vs Railway
-- [ ] Provision accounts: Supabase, Vapi, Vercel, Render, Google Cloud (OAuth consent), GitHub repo
-- [ ] Scaffold monorepo: Next.js (`frontend/`), FastAPI (`backend/`), `evals/`, `docs/`
+- [x] Provision accounts: Supabase, Vapi, Vercel, Render, Google Cloud (OAuth consent), GitHub repo
+- [x] Scaffold monorepo: Next.js (`frontend/`), FastAPI (`backend/`), `evals/`, `docs/`
 - [ ] Supabase: create all 10 tables with RLS + seed admin/user accounts
 - [ ] Login flow working end-to-end (Next.js → Supabase Auth → role-gated routes)
 
