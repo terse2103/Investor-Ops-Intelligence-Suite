@@ -9,9 +9,10 @@ on:
 jobs:
   trigger-scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Trigger scrape endpoint
         run: |
-          curl -f -s -S -X POST "${{ secrets.BACKEND_URL }}/api/scrape" \
+          curl -f -s -S --max-time 120 -X POST "${{ secrets.BACKEND_URL }}/api/scrape" \
             -H "Content-Type: application/json" \
             -H "X-Scrape-Secret: ${{ secrets.SCRAPE_SHARED_SECRET }}"

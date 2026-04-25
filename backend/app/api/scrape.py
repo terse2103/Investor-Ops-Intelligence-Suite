@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.config import settings
-from app.core.auth import require_auth
+from app.core.auth import require_admin, require_auth
 from app.services.pulse.scraper import scrape_reviews
 
 router = APIRouter(prefix="/api", tags=["scrape"])
@@ -24,11 +24,7 @@ async def _scrape_auth(
             )
         return
     user = await require_auth(authorization)
-    if user.get("role") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
+    await require_admin(user)
 
 
 @router.post("/scrape")
