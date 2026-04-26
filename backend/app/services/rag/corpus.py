@@ -1,8 +1,10 @@
 """Seed URLs for the INDMoney RAG corpus (Pillar A).
 
-6 Nippon India schemes covering ELSS, sector index, short-duration debt,
-target-maturity debt, commodity FoF, and hybrid BAF. M2 fee-explainer docs
-will be added on Day 3.
+M1: 6 Nippon India scheme factsheets (ELSS, sector index, short-duration debt,
+target-maturity debt, commodity FoF, hybrid BAF).
+M2: 4 Groww fee-explainer pages covering expense ratio, AUM, exit load, and NAV.
+
+ALL_SOURCES is the unified seed used by the startup ingest in app.main.
 """
 
 NIPPON_INDIA_SCHEMES: list[dict] = [
@@ -37,3 +39,28 @@ NIPPON_INDIA_SCHEMES: list[dict] = [
         "category": "mf_factsheet",
     },
 ]
+
+FEE_EXPLAINER_DOCS: list[dict] = [
+    {
+        "url": "https://groww.in/p/expense-ratio",
+        "title": "Expense Ratio in Mutual Funds",
+        "category": "fee_scenario",
+    },
+    {
+        "url": "https://groww.in/blog/asset-under-management",
+        "title": "Assets Under Management (AUM)",
+        "category": "fee_scenario",
+    },
+    {
+        "url": "https://groww.in/p/exit-load-in-mutual-funds",
+        "title": "Exit Load in Mutual Funds",
+        "category": "fee_scenario",
+    },
+    {
+        "url": "https://groww.in/p/nav",
+        "title": "Net Asset Value (NAV)",
+        "category": "fee_scenario",
+    },
+]
+
+ALL_SOURCES: list[dict] = NIPPON_INDIA_SCHEMES + FEE_EXPLAINER_DOCS

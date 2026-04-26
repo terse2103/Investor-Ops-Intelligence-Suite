@@ -24,12 +24,12 @@ async def lifespan(app: FastAPI):
     if os.getenv("SKIP_STARTUP_INGEST") != "1":
         try:
             from app.core.retriever import get_retriever
-            from app.services.rag.corpus import NIPPON_INDIA_SCHEMES
+            from app.services.rag.corpus import ALL_SOURCES
             from app.services.rag.ingest import ingest_sources
 
             retriever = get_retriever()
             if retriever.count() == 0:
-                n = await ingest_sources(NIPPON_INDIA_SCHEMES)
+                n = await ingest_sources(ALL_SOURCES)
                 log.info("Startup ingest: %d chunks indexed", n)
             else:
                 log.info("RAG index already populated: %d chunks", retriever.count())
