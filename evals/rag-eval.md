@@ -2,7 +2,7 @@
 
 **Goal:** 32+ / 40 (4 Faithfulness + 4 Relevance per case × 5 cases). See `docs/Evals.md` for scoring model.
 
-**Status:** 3 of 5 cases defined (Day 2). Remaining 2 fee-related cases added on Day 3 after M2 corpus ingestion.
+**Status:** 5 of 5 cases defined (R1–R3 on Day 2; R4–R5 on Day 3 after M2 fee-explainer ingestion).
 
 ---
 
@@ -61,15 +61,39 @@ Each case scores:
 
 ---
 
-## Case R4: Fact + fee combined (Smart-Sync) — *deferred to Day 3*
+## Case R4: Fact + fee combined (Smart-Sync)
 
-Will be added after M2 fee-explainer documents are folded into the RAG index. Example question: "What is the exit load for the ELSS Tax Saver Fund, and why would I be charged one?"
+**Question:** What is the exit load on Nippon India Short Duration Fund, and what does exit load mean?
+
+**Expected sources cited:**
+- https://www.indmoney.com/mutual-funds/nippon-india-short-duration-fund-direct-plan-growth-plan-2268 (M1 factsheet — specific exit load value)
+- https://groww.in/p/exit-load-in-mutual-funds (M2 fee_scenario — generic explainer)
+
+**Faithfulness rubric:** Must state the actual exit load percentage and trigger window from the factsheet, AND give a generic 1-2 sentence explanation of exit load grounded in the explainer doc. No invented numbers.
+
+**Relevance rubric:** Answer must address both halves of the question (specific value + concept). EC-RAG-4 expectation: each half cites its own source.
+
+**Must also include:** Both source URLs in the citations block, plus `Last updated from sources: <date>` per R-G4.
+
+**Expected score:** 8 / 8 if both halves are answered with correct citations. 4 / 8 if only one half is answered. 0 / 8 if numbers are fabricated or cross-scheme leakage occurs.
 
 ---
 
-## Case R5: Factual lookup with ambiguous scheme name — *deferred to Day 3*
+## Case R5: Factual lookup with ambiguous scheme name (EC-RAG-2)
 
-Will probe EC-RAG-2 (ambiguous scheme name handling). Example question: "What is the expense ratio of the Nippon India debt fund?" — ambiguous because the corpus contains two debt funds (Short Duration + CRISIL target-maturity).
+**Question:** What is the expense ratio of the Nippon India debt fund?
+
+**Expected behavior:** Clarification, not a guess. The corpus contains two debt schemes:
+- Nippon India Short Duration Fund (open-ended short-duration debt)
+- Nippon India CRISIL IBX AAA Financial Services Dec 2026 Index Fund (target-maturity debt)
+
+Per EC-RAG-2, the agent must list the candidates and ask which one. Acceptable phrasings include "I have {list}. Which one are you asking about?" or equivalent.
+
+**Faithfulness rubric:** N/A (clarification case — no factual claim made).
+
+**Relevance rubric:** Both candidate scheme names must appear in the clarification response. Agent must NOT pick one and answer with its expense ratio.
+
+**Expected score:** 8 / 8 if both schemes are listed and the agent asks for clarification. 4 / 8 if only one scheme is listed but no answer is given. 0 / 8 if it picks one and answers without asking.
 
 ---
 

@@ -6,10 +6,10 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 
 ## Progress
 
-**Completed: 15 / 38 items → ~39%** — Day 1 + Day 2 done.
+**Completed: 22 / 38 items → ~58%** — Day 1 + Day 2 + Day 3 done.
 
 ```
-████████████░░░░░░░░░░░░░░░░░░░░  39%
+██████████████████░░░░░░░░░░░░░░  58%
 ```
 
 > Update this bar as you check items. Percentage = (completed items / 38) × 100.
@@ -42,13 +42,13 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 ## Day 3 — M2 Pulse + Fee Explainer (Pillar A complete + Pillar B foundation)
 *Goal: scraped reviews become a pulse; fee docs fold into the RAG index; Smart-Sync works.*
 
-- [ ] Scraper via `google-play-scraper` with scrape-time filter (R-PULSE7: English + >5 words)
-- [ ] `/api/scrape` endpoint + GitHub Actions weekly cron wired
-- [ ] Pulse generator (max 5 themes, top 3, 3 quotes, ≤250 words, exactly 3 actions)
-- [ ] `current_themes` cache populated for Vapi injection
-- [ ] Fee Explainer docs folded into the RAG index (completes Pillar A)
-- [ ] `/admin/pulse` route live with "Refresh now" button
-- [ ] Remaining 2 RAG eval cases (fee-related) + `evals/ux-eval.md` rubric passing
+- [x] Scraper via `google-play-scraper` with scrape-time filter (R-PULSE7: English + >5 words)
+- [x] `/api/scrape` endpoint + GitHub Actions weekly cron wired
+- [x] Pulse generator (max 5 themes, top 3, 3 quotes, ≤250 words, exactly 3 actions)
+- [x] `current_themes` cache populated for Vapi injection
+- [x] Fee Explainer docs folded into the RAG index (completes Pillar A)
+- [x] `/admin/pulse` route live with "Refresh now" button
+- [x] Remaining 2 RAG eval cases (fee-related) + `evals/ux-eval.md` rubric passing
 
 ## Day 4 — M3 Voice Agent (Pillar B complete)
 *Goal: themed voice call books an advisor; post-call writes pending_actions.*

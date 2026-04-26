@@ -2,7 +2,7 @@
 
 **Goal:** 28+ / 30 (Pulse rubric: 15 pts, Voice theme-mention logic check: 15 pts). See `docs/Evals.md` for scoring model.
 
-**Status:** Rubric defined (Day 2). Cases filled and scored on Day 3 (Pulse) and Day 4 (Voice).
+**Status:** Rubric defined (Day 2). Pulse rubric (P1–P3) ready to run after Day 3 (`/api/pulse/generate` live, persistence into `pulses` and `current_themes` verified by unit tests). Voice rubric (V1) still pending Day 4.
 
 ---
 
@@ -29,7 +29,7 @@ All four checks are **pass/fail**. No partial credit within a check; the 5-pt va
 
 **Score:** 5 / 5 if passing, 0 / 5 if over.
 
-**Status:** ⬜ Not yet run (awaiting Day 3 implementation)
+**Status:** 🟡 Ready to run (Day 3 implementation complete; final score recorded by Day 6 runner)
 
 ---
 
@@ -41,7 +41,7 @@ All four checks are **pass/fail**. No partial credit within a check; the 5-pt va
 
 **Score:** 5 / 5 if passing, 0 / 5 otherwise.
 
-**Status:** ⬜ Not yet run
+**Status:** 🟡 Ready to run (Day 3 implementation complete; final score recorded by Day 6 runner)
 
 ---
 
@@ -53,7 +53,7 @@ All four checks are **pass/fail**. No partial credit within a check; the 5-pt va
 
 **Score:** 5 / 5 if passing, 0 / 5 otherwise.
 
-**Status:** ⬜ Not yet run
+**Status:** 🟡 Ready to run (Day 3 implementation complete; final score recorded by Day 6 runner)
 
 ---
 
