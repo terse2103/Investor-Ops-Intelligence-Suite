@@ -19,10 +19,16 @@ def _make_review(
     content: str,
     score: int = 5,
     days_ago: int = 5,
+    user_name: str = "Test User",
 ) -> dict:
-    """Build a fake google-play-scraper review dict."""
+    """Build a fake google-play-scraper review dict.
+
+    google-play-scraper returns `score` and `at` (datetime); the scraper maps
+    these to the DB columns `rating` and `posted_at`.
+    """
     return {
         "reviewId": review_id,
+        "userName": user_name,
         "content": content,
         "score": score,
         "at": datetime.now(timezone.utc) - timedelta(days=days_ago),
@@ -119,6 +125,23 @@ async def test_scrape_reviews_counts_and_redact() -> None:
     assert result["inserted"] == 2
     assert result["filtered_out"] == 3  # short + old + hindi
 
+    # Verify the upsert payload uses the real DB schema columns
+    mock_table.upsert.assert_called_once()
+    upserted_rows = mock_table.upsert.call_args.args[0]
+    assert len(upserted_rows) == 2
+    for row in upserted_rows:
+        assert set(row.keys()) == {
+            "play_review_id",
+            "user_name",
+            "rating",
+            "content",
+            "posted_at",
+        }
+        assert isinstance(row["rating"], int)
+        assert 1 <= row["rating"] <= 5
+    upserted_ids = {row["play_review_id"] for row in upserted_rows}
+    assert upserted_ids == {"r1", "r2"}
+
 
 @pytest.mark.asyncio
 async def test_scrape_reviews_redact_called_on_accepted() -> None:
@@ -181,7 +204,12 @@ async def test_scrape_reviews_all_filtered_out() -> None:
 
 @pytest.mark.asyncio
 async def test_scrape_reviews_audit_row_written() -> None:
-    """A scrape_runs row must always be written, even when nothing is accepted."""
+    """A scrape_runs row must always be written, even when nothing is accepted.
+
+    The audit row must use the real Supabase schema columns: status,
+    review_count, filtered_out_count, trigger_source, started_at, finished_at,
+    error_message.
+    """
     fake_reviews = [SHORT_REVIEW]
 
     mock_insert_resp = MagicMock()
@@ -203,7 +231,7 @@ async def test_scrape_reviews_audit_row_written() -> None:
         patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
         patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
     ):
-        result = await scrape_reviews()
+        result = await scrape_reviews(trigger_source="cron")
 
     # The audit insert must have been called exactly once on "scrape_runs"
     scrape_runs_calls = [
@@ -212,13 +240,49 @@ async def test_scrape_reviews_audit_row_written() -> None:
     ]
     assert len(scrape_runs_calls) == 1
 
-    # Inspect the scrape_runs mock directly — not fragile index into shared mock
+    # Inspect the scrape_runs mock directly — verify real-schema columns
     mock_scrape_runs_table.insert.assert_called_once()
     insert_args = mock_scrape_runs_table.insert.call_args.args[0]
-    assert insert_args["fetched"] == result["fetched"]
-    assert insert_args["accepted"] == result["accepted"]
-    assert insert_args["inserted"] == result["inserted"]
-    assert insert_args["filtered_out"] == result["filtered_out"]
+    assert insert_args["status"] == "ok"
+    assert insert_args["review_count"] == result["accepted"]
+    assert insert_args["filtered_out_count"] == result["filtered_out"]
+    assert insert_args["trigger_source"] == "cron"
+    assert insert_args["error_message"] is None
+    assert "started_at" in insert_args
+    assert "finished_at" in insert_args
+    # Legacy columns must NOT be present (they don't exist in the real schema)
+    assert "fetched" not in insert_args
+    assert "accepted" not in insert_args
+    assert "inserted" not in insert_args
+    assert "filtered_out" not in insert_args
+
+
+@pytest.mark.asyncio
+async def test_scrape_reviews_default_trigger_source_is_manual() -> None:
+    """When called with no trigger_source, the audit row records 'manual'."""
+    fake_reviews = [SHORT_REVIEW]
+
+    mock_insert_resp = MagicMock()
+    mock_insert_resp.data = []
+    mock_scrape_runs_table = MagicMock()
+    mock_scrape_runs_table.insert.return_value.execute.return_value = mock_insert_resp
+    mock_reviews_table = MagicMock()
+
+    def _table_router(name: str) -> MagicMock:
+        return mock_scrape_runs_table if name == "scrape_runs" else mock_reviews_table
+
+    mock_supabase_client = MagicMock()
+    mock_supabase_client.table.side_effect = _table_router
+
+    with (
+        patch("app.services.pulse.scraper.gps_reviews", return_value=(fake_reviews, None)),
+        patch("app.services.pulse.scraper._supabase", return_value=mock_supabase_client),
+        patch("app.services.pulse.scraper.detect", side_effect=_fake_langdetect),
+    ):
+        await scrape_reviews()  # default
+
+    insert_args = mock_scrape_runs_table.insert.call_args.args[0]
+    assert insert_args["trigger_source"] == "manual"
 
 
 def test_langdetect_exception_rejects_review() -> None:
@@ -280,6 +344,7 @@ async def test_review_with_null_date_filtered_out() -> None:
     """A review with at=None must be excluded (counted in filtered_out, not accepted)."""
     null_date_review = {
         "reviewId": "r_null_date",
+        "userName": "Null Date User",
         "content": "This is a long enough review with many words to pass the word count",
         "score": 5,
         "at": None,
