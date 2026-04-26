@@ -33,6 +33,19 @@ class Retriever:
     def count(self) -> int:
         return self._collection.count()
 
+    def indexed_urls(self) -> set[str]:
+        """Return the set of unique source URLs already in the index.
+
+        Used by the startup ingest to ingest only sources that are missing,
+        so adding a new source to the corpus seed list and restarting the
+        backend automatically picks it up without wiping the existing index.
+        """
+        if self._collection.count() == 0:
+            return set()
+        res = self._collection.get(include=["metadatas"])
+        metas = res.get("metadatas") or []
+        return {m["url"] for m in metas if m and m.get("url")}
+
     def reset(self) -> None:
         """Drop and recreate the collection. Used by tests."""
         try:

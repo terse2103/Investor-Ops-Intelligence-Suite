@@ -28,11 +28,23 @@ async def lifespan(app: FastAPI):
             from app.services.rag.ingest import ingest_sources
 
             retriever = get_retriever()
-            if retriever.count() == 0:
-                n = await ingest_sources(ALL_SOURCES)
-                log.info("Startup ingest: %d chunks indexed", n)
+            indexed = retriever.indexed_urls()
+            missing = [src for src in ALL_SOURCES if src["url"] not in indexed]
+            if missing:
+                n = await ingest_sources(missing)
+                log.info(
+                    "Startup ingest: %d new chunks across %d sources (was %d sources, %d chunks)",
+                    n,
+                    len(missing),
+                    len(indexed),
+                    retriever.count() - n,
+                )
             else:
-                log.info("RAG index already populated: %d chunks", retriever.count())
+                log.info(
+                    "RAG index up-to-date: %d chunks across %d sources",
+                    retriever.count(),
+                    len(indexed),
+                )
         except Exception as e:
             log.warning("Startup ingest failed (proceeding with empty index): %s", e)
     yield

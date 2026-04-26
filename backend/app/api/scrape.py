@@ -1,9 +1,13 @@
 """Scrape endpoint: manual trigger (admin button) and GitHub Actions cron."""
+import logging
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.config import settings
 from app.core.auth import require_admin, require_auth
 from app.services.pulse.scraper import scrape_reviews
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["scrape"])
 
@@ -39,5 +43,16 @@ async def scrape(trigger_source: str = Depends(_scrape_auth)) -> dict:
 
     Requires either an admin-role JWT (via /admin UI) OR the shared-secret header
     (from GitHub Actions cron). Applies R-PULSE7 (English + >5 words) at ingest.
+
+    Returns 502 with the underlying error message if the Play Store fetch or
+    Supabase write fails. The error audit row in scrape_runs is written
+    best-effort by scrape_reviews itself before re-raising.
     """
-    return await scrape_reviews(trigger_source=trigger_source)
+    try:
+        return await scrape_reviews(trigger_source=trigger_source)
+    except Exception as exc:
+        log.exception("scrape failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Scrape failed: {exc}",
+        ) from exc

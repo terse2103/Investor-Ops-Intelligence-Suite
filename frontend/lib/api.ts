@@ -27,7 +27,19 @@ export async function api<T = unknown>(
     headers,
   });
   if (!res.ok) {
-    throw new Error(`API ${path} failed: ${res.status}`);
+    let detail = "";
+    try {
+      const body = (await res.clone().json()) as { detail?: unknown };
+      if (typeof body?.detail === "string") detail = body.detail;
+    } catch {
+      try {
+        detail = await res.text();
+      } catch {
+        // give up; the status code alone will surface in the error
+      }
+    }
+    const suffix = detail ? ` — ${detail}` : "";
+    throw new Error(`API ${path} failed: ${res.status}${suffix}`);
   }
   return res.json() as Promise<T>;
 }
