@@ -13,6 +13,37 @@ def get_client() -> Anthropic:
     return Anthropic(api_key=settings.anthropic_api_key)
 
 
+def complete_text(
+    *,
+    system_prompt: str,
+    user_content: str,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+) -> str:
+    """Single-turn completion. Caches the system prompt; returns text only.
+
+    Used for non-RAG flows (Pulse generator, structured-output tasks) where the
+    user content is composed by the caller rather than retrieved from a corpus.
+    """
+    client = get_client()
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        thinking={"type": "adaptive"},
+        system=[
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[{"role": "user", "content": user_content}],
+    )
+    for block in response.content:
+        if block.type == "text":
+            return block.text
+    return ""
+
+
 def answer_from_context(
     *,
     question: str,
