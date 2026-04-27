@@ -25,13 +25,29 @@ function uid() {
 }
 
 const DISCLAIMER =
-  "This chatbot provides factual information only. It cannot give investment advice, compare schemes, or predict returns. Every answer is sourced directly from the INDMoney corpus.";
+  "This chatbot provides factual information only. It cannot give investment advice, compare schemes, or predict returns. Every answer is sourced directly from the indexed corpus.";
+
+const MF_SCHEMES = [
+  "Nippon India ELSS Tax Saver Fund",
+  "Nippon India Nifty Auto Index Fund",
+  "Nippon India Short Duration Fund",
+  "Nippon India CRISIL IBX AAA Fin Svcs Dec 2026 Index Fund",
+  "Nippon India Silver ETF Fund of Fund",
+  "Nippon India Balanced Advantage Fund",
+];
+
+const FEE_SCENARIOS = [
+  "Expense Ratio",
+  "Assets Under Management (AUM)",
+  "Exit Load",
+  "Net Asset Value (NAV)",
+];
 
 const SUGGESTIONS = [
   "What is the expense ratio of Nippon India ELSS Tax Saver Fund?",
   "What is the lock-in period of Nippon India ELSS Tax Saver Fund?",
-  "Tell me about Nippon India Silver ETF Fund of Fund.",
-  "What is Nippon India Balanced Advantage Fund about?",
+  "What is exit load and how does it work?",
+  "What is the exit load on Nippon India Short Duration Fund and what does exit load mean?",
 ];
 
 export default function ChatbotPage() {
@@ -302,11 +318,13 @@ function EmptyState({ onSuggestion }: { onSuggestion: (q: string) => void }) {
       <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 8px" }}>
         Smart-Sync Knowledge Base
       </h2>
-      <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 400, lineHeight: 1.6, marginBottom: 32 }}>
-        Ask any question about Nippon India mutual fund schemes. Every answer is
-        cited directly from the INDMoney corpus — no investment advice, ever.
+      <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 460, lineHeight: 1.6, marginBottom: 24 }}>
+        Ask factual questions about specific Nippon India mutual fund schemes
+        or general fee/metric concepts. Every answer is cited from the indexed
+        corpus, no investment advice, ever.
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 520 }}>
+      <CoverageCard />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 520, marginTop: 24 }}>
         <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>
           Try a question
         </p>
@@ -341,6 +359,84 @@ function EmptyState({ onSuggestion }: { onSuggestion: (q: string) => void }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CoverageCard() {
+  return (
+    <div
+      className="glass-card"
+      style={{
+        width: "100%",
+        maxWidth: 520,
+        padding: "14px 16px",
+        textAlign: "left",
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 14,
+      }}
+    >
+      <CoverageColumn
+        icon="📈"
+        title="MF schemes"
+        items={MF_SCHEMES}
+      />
+      <CoverageColumn
+        icon="💰"
+        title="Fee scenarios"
+        items={FEE_SCENARIOS}
+      />
+    </div>
+  );
+}
+
+function CoverageColumn({
+  icon,
+  title,
+  items,
+}: {
+  icon: string;
+  title: string;
+  items: string[];
+}) {
+  return (
+    <div>
+      <p
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "var(--text-muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.07em",
+          margin: "0 0 6px",
+        }}
+      >
+        {icon} {title}
+      </p>
+      <ul
+        style={{
+          margin: 0,
+          padding: 0,
+          listStyle: "none",
+          display: "flex",
+          flexDirection: "column",
+          gap: 4,
+        }}
+      >
+        {items.map((item) => (
+          <li
+            key={item}
+            style={{
+              fontSize: 12,
+              color: "var(--text-secondary)",
+              lineHeight: 1.4,
+            }}
+          >
+            {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
