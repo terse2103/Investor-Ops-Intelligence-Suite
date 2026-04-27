@@ -1,0 +1,20 @@
+name: Daily corpus refresh
+
+on:
+  schedule:
+    # Every day at 03:00 UTC. Re-ingests M1 fund factsheets + M2 fee
+    # scenarios so the RAG index always reflects the latest source pages.
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refresh RAG corpus
+        run: |
+          curl -f --max-time 300 \
+            -X POST \
+            -H "X-Cron-Secret: ${{ secrets.CORPUS_REFRESH_SECRET }}" \
+            "${{ secrets.BACKEND_URL }}/api/rag/refresh"

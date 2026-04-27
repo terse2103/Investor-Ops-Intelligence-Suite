@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     vapi_public_key: str = ""
     frontend_url: str = "http://localhost:3000"
     scrape_shared_secret: str = ""
+    corpus_refresh_secret: str = ""
     email_provider: str = ""
     email_api_key: str = ""
     email_from: str = ""
