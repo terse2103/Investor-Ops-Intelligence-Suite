@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     vapi_api_key: str = ""
     vapi_public_key: str = ""
+    vapi_webhook_secret: str = ""
+    vapi_assistant_id: str = ""
     frontend_url: str = "http://localhost:3000"
     scrape_shared_secret: str = ""
     corpus_refresh_secret: str = ""

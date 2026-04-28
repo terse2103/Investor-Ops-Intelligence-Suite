@@ -2,7 +2,7 @@
 
 **Goal:** 28+ / 30 (Pulse rubric: 15 pts, Voice theme-mention logic check: 15 pts). See `docs/Evals.md` for scoring model.
 
-**Status:** Rubric defined (Day 2). Pulse rubric (P1–P3) ready to run after Day 3 (`/api/pulse/generate` live, persistence into `pulses` and `current_themes` verified by unit tests). Voice rubric (V1) still pending Day 4.
+**Status:** Rubric defined (Day 2). All 4 sub-evals (P1–P3 + V1) ready to run after Day 3 + Day 4 implementations. Final score recorded by Day 6 runner.
 
 ---
 
@@ -73,7 +73,7 @@ All four checks are **pass/fail**. No partial credit within a check; the 5-pt va
 
 **Note:** This check validates Pillar B end-to-end: scraper → pulse → `current_themes` → Vapi injection → voice greeting. If `current_themes` is empty (no pulse generated), the voice agent must still greet without crashing (graceful degradation), but the score is 0.
 
-**Status:** ⬜ Not yet run (awaiting Day 4 implementation)
+**Status:** 🟡 Ready to run (Day 4 implementation complete: /api/voice/context exposes top_theme_1..3 as Vapi dynamic variables; assistant prompt in docs/Vapi.md mandates theme mention in greeting; final score recorded by Day 6 runner)
 
 ---
 

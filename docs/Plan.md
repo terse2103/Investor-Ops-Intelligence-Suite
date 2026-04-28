@@ -6,10 +6,10 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 
 ## Progress
 
-**Completed: 22 / 38 items → ~58%** — Day 1 + Day 2 + Day 3 done.
+**Completed: 28 / 38 items → ~74%** — Day 1 + Day 2 + Day 3 + Day 4 done.
 
 ```
-██████████████████░░░░░░░░░░░░░░  58%
+████████████████████████░░░░░░░░  74%
 ```
 
 > Update this bar as you check items. Percentage = (completed items / 38) × 100.
@@ -53,12 +53,12 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 ## Day 4 — M3 Voice Agent (Pillar B complete)
 *Goal: themed voice call books an advisor; post-call writes pending_actions.*
 
-- [ ] Vapi agent configured with scripted M3 flow (greet → disclaimer → topic → time → 2 slots → confirm)
-- [ ] Theme injection via Vapi dynamic variables from `current_themes`
-- [ ] `/user/voice` route live with Vapi Web SDK embedded
-- [ ] Post-call webhook writes 3 `pending_actions` per booking
-- [ ] Remaining 2 safety eval cases (PII, prompt injection) passing
-- [ ] Voice theme-mention logic check (UX eval) passing
+- [x] Vapi agent configured with scripted M3 flow (greet → disclaimer → topic → time → 2 slots → confirm)
+- [x] Theme injection via Vapi dynamic variables from `current_themes`
+- [x] `/user/voice` route live with Vapi Web SDK embedded
+- [x] Post-call webhook writes 3 `pending_actions` per booking
+- [x] Remaining 2 safety eval cases (PII, prompt injection) passing
+- [x] Voice theme-mention logic check (UX eval) passing
 
 ## Day 5 — Pillar C (HITL Approval Center)
 *Goal: admin approves/rejects; Google APIs + Gmail MCP execute; user gets email.*
