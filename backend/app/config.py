@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     email_from: str = ""
     google_client_id: str = ""
     google_client_secret: str = ""
+    google_sa_json: str = ""
+    google_sa_json_path: str = ""
+    google_calendar_id: str = ""
+    google_sheets_id: str = ""
+    google_sheets_range: str = "Bookings!A:F"
+    gmail_mcp_command: str = ""
+    gmail_mcp_args: str = ""
+    resend_api_key: str = ""
 
 
 settings = Settings()
