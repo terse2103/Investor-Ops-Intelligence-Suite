@@ -2,7 +2,7 @@
 
 M1: 6 Nippon India scheme factsheets (ELSS, sector index, short-duration debt,
 target-maturity debt, commodity FoF, hybrid BAF).
-M2: 4 Groww fee-explainer pages covering expense ratio, AUM, exit load, and NAV.
+M2: 4 INDMoney fee-explainer pages covering expense ratio, AUM, exit load, and NAV.
 
 ALL_SOURCES is the unified seed used by the startup ingest in app.main.
 """
@@ -42,22 +42,22 @@ NIPPON_INDIA_SCHEMES: list[dict] = [
 
 FEE_EXPLAINER_DOCS: list[dict] = [
     {
-        "url": "https://groww.in/p/expense-ratio",
+        "url": "https://www.indmoney.com/blog/mutual-funds/what-is-expense-ratio",
         "title": "Expense Ratio in Mutual Funds",
         "category": "fee_scenario",
     },
     {
-        "url": "https://groww.in/blog/asset-under-management",
+        "url": "https://www.indmoney.com/blog/mutual-funds/what-is-aum-in-mutual-funds",
         "title": "Assets Under Management (AUM)",
         "category": "fee_scenario",
     },
     {
-        "url": "https://groww.in/p/exit-load-in-mutual-funds",
+        "url": "https://www.indmoney.com/blog/mutual-funds/exit-load-mutual-funds-explained",
         "title": "Exit Load in Mutual Funds",
         "category": "fee_scenario",
     },
     {
-        "url": "https://groww.in/p/nav",
+        "url": "https://www.indmoney.com/blog/mutual-funds/what-is-nav-in-mutual-funds",
         "title": "Net Asset Value (NAV)",
         "category": "fee_scenario",
     },

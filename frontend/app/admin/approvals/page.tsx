@@ -20,10 +20,15 @@ interface PendingAction {
   calls?: CallSummary | null;
 }
 
-interface DecisionResult {
-  action_id: string;
+interface CallDecisionResult {
+  call_id: string;
   decision: string;
-  execution_status: string | null;
+  results: {
+    action_id: string;
+    type: PendingAction["type"];
+    decision: string;
+    execution_status: string | null;
+  }[];
   notification: { status: string } | null;
 }
 
@@ -57,25 +62,27 @@ export default function ApprovalsPage() {
     void load();
   }, []);
 
-  async function decide(action: PendingAction, status: "approved" | "rejected") {
-    setBusy((b) => ({ ...b, [action.id]: true }));
+  async function decideCall(callId: string, status: "approved" | "rejected") {
+    setBusy((b) => ({ ...b, [callId]: true }));
     setError(null);
     try {
-      const result = await api<DecisionResult>(
-        `/api/approvals/${action.id}/decide`,
+      const result = await api<CallDecisionResult>(
+        `/api/approvals/call/${callId}/decide`,
         { method: "POST", body: JSON.stringify({ status }) },
       );
-      // Optimistic: drop the action from the queue
-      setItems((prev) => prev.filter((a) => a.id !== action.id));
-      if (result.execution_status === "failed") {
+      // Optimistic: drop every action for this call from the queue
+      setItems((prev) => prev.filter((a) => a.call_id !== callId));
+      const failed = result.results.filter((r) => r.execution_status === "failed");
+      if (failed.length > 0) {
+        const types = failed.map((r) => r.type).join(", ");
         setError(
-          `Action ${action.type} executed but the provider reported a failure. Check action_audit.`,
+          `Booking approved, but these actions failed at the provider: ${types}. Check action_audit.`,
         );
       }
     } catch (e) {
       setError(`Decision failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
-      setBusy((b) => ({ ...b, [action.id]: false }));
+      setBusy((b) => ({ ...b, [callId]: false }));
     }
   }
 
@@ -130,17 +137,21 @@ export default function ApprovalsPage() {
 
       {groups.map((g) => (
         <div key={g.callId} className="glass-card" style={{ padding: 16, marginBottom: 14 }}>
-          <CallHeader call={g.call} createdAt={g.createdAt} />
+          <CallHeader
+            call={g.call}
+            createdAt={g.createdAt}
+            actionCount={g.actions.length}
+            busy={!!busy[g.callId]}
+            onDecide={(status) => decideCall(g.callId, status)}
+          />
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
             {g.actions.map((a) => (
-              <ActionRow
-                key={a.id}
-                action={a}
-                busy={!!busy[a.id]}
-                onDecide={decide}
-              />
+              <ActionRow key={a.id} action={a} />
             ))}
           </div>
+          <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "10px 2px 0" }}>
+            One approval fires the calendar hold, sheets row, and Gmail draft together.
+          </p>
         </div>
       ))}
     </div>
@@ -168,7 +179,19 @@ function groupByCall(items: PendingAction[]): {
     .map(([callId, v]) => ({ callId, ...v }));
 }
 
-function CallHeader({ call, createdAt }: { call: CallSummary | null; createdAt: string }) {
+function CallHeader({
+  call,
+  createdAt,
+  actionCount,
+  busy,
+  onDecide,
+}: {
+  call: CallSummary | null;
+  createdAt: string;
+  actionCount: number;
+  busy: boolean;
+  onDecide: (status: "approved" | "rejected") => void;
+}) {
   return (
     <div
       style={{
@@ -177,35 +200,51 @@ function CallHeader({ call, createdAt }: { call: CallSummary | null; createdAt: 
         alignItems: "center",
         gap: 12,
         borderBottom: "1px solid var(--border-subtle)",
-        paddingBottom: 8,
+        paddingBottom: 10,
+        flexWrap: "wrap",
       }}
     >
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-          {call?.booking_code ?? "no booking code"}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+            {call?.booking_code ?? "no booking code"}
+          </span>
+          <span className="badge" style={{ fontSize: 11 }}>
+            {actionCount} action{actionCount === 1 ? "" : "s"}
+          </span>
+          {call?.user_id && (
+            <span className="badge" style={{ fontSize: 11 }}>
+              user {call.user_id.slice(0, 8)}…
+            </span>
+          )}
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
           Topic: {call?.topic ?? "(general)"} · queued {new Date(createdAt).toLocaleString()}
         </div>
       </div>
-      {call?.user_id && (
-        <span className="badge" style={{ fontSize: 11 }}>
-          user {call.user_id.slice(0, 8)}…
-        </span>
-      )}
+      <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <button
+          onClick={() => onDecide("rejected")}
+          disabled={busy}
+          className="btn"
+          style={{ fontSize: 12 }}
+        >
+          Reject all
+        </button>
+        <button
+          onClick={() => onDecide("approved")}
+          disabled={busy}
+          className="btn btn-primary"
+          style={{ fontSize: 12 }}
+        >
+          {busy ? "..." : "Approve all"}
+        </button>
+      </div>
     </div>
   );
 }
 
-function ActionRow({
-  action,
-  busy,
-  onDecide,
-}: {
-  action: PendingAction;
-  busy: boolean;
-  onDecide: (action: PendingAction, status: "approved" | "rejected") => Promise<void>;
-}) {
+function ActionRow({ action }: { action: PendingAction }) {
   const [open, setOpen] = useState(false);
   const meta = TYPE_META[action.type];
   return (
@@ -240,22 +279,6 @@ function ActionRow({
             {open ? "▾ hide payload" : "▸ show payload"}
           </button>
         </div>
-        <button
-          onClick={() => onDecide(action, "rejected")}
-          disabled={busy}
-          className="btn"
-          style={{ fontSize: 12 }}
-        >
-          Reject
-        </button>
-        <button
-          onClick={() => onDecide(action, "approved")}
-          disabled={busy}
-          className="btn btn-primary"
-          style={{ fontSize: 12 }}
-        >
-          {busy ? "..." : "Approve"}
-        </button>
       </div>
       {open && (
         <pre

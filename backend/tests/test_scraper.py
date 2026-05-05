@@ -117,7 +117,7 @@ async def test_scrape_reviews_counts_and_redact() -> None:
         result = await scrape_reviews()
 
     mock_gps.assert_called_once_with(
-        "in.indmoney", lang="en", country="in", sort=ANY, count=200
+        "in.indwealth", lang="en", country="in", sort=ANY, count=200
     )
 
     assert result["fetched"] == 5

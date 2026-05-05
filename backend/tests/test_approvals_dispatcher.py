@@ -217,18 +217,28 @@ def test_approve_calendar_executes_and_audits() -> None:
     notif.notify_booking_decision.assert_not_called()  # one sibling still pending
 
 
-def test_approve_email_uses_mcp_with_user_contact() -> None:
+def test_approve_email_routes_to_advisor_from_payload() -> None:
+    """Email actions target the advisor email baked into the payload.to field
+    (post-call sets it from settings.advisor_email). The booking user gets
+    their own confirmation through core/notifier.py, not this draft."""
     action = {
         "id": "a-2",
         "type": "email",
         "status": "pending",
         "call_id": "c-1",
-        "payload": {"subject": "Booking", "body": "...", "market_context": "x", "booking_code": "NL-AB12"},
+        "payload": {
+            "subject": "Booking",
+            "body": "...",
+            "market_context": "x",
+            "booking_code": "NL-AB12",
+            "to": "advisor@example.com",
+            "audience": "advisor",
+        },
     }
     client, _ = _mock_client_for_dispatcher(
         actions_by_id={"a-2": action},
         calls_by_id={"c-1": {"id": "c-1", "user_id": "u-1", "booking_code": "NL-AB12"}},
-        user_contacts={"u-1": "user@example.com"},
+        user_contacts={"u-1": "user@example.com"},  # not used for the draft anymore
         sibling_actions=[
             {"type": "calendar", "status": "executed"},
             {"type": "sheets", "status": "executed"},
@@ -236,24 +246,64 @@ def test_approve_email_uses_mcp_with_user_contact() -> None:
         ],
         notifications_existing=[],
     )
+    captured: dict[str, str | None] = {"to": None}
+
+    async def fake_create_draft(*, payload: dict, to: str) -> dict:
+        captured["to"] = to
+        return {"draftId": "draft-1"}
+
     with (
         patch("app.services.approvals.dispatcher._supabase", return_value=client),
-        patch("app.services.approvals.dispatcher.mcp_client") as mcp_mod,
-        patch("app.services.approvals.dispatcher.asyncio.run") as run_mock,
+        patch("app.services.approvals.dispatcher.mcp_client.create_draft", side_effect=fake_create_draft),
         patch("app.services.approvals.dispatcher.notifier") as notif,
     ):
-        run_mock.return_value = {"draftId": "draft-1"}
         notif.notify_booking_decision.return_value = {"status": "sent"}
         result = dispatcher.decide_action("a-2", decision="approved", decided_by="admin-1")
 
-    # mcp_client.create_draft is the coroutine; asyncio.run invokes it
-    run_mock.assert_called_once()
+    assert captured["to"] == "advisor@example.com"
     assert result["execution_status"] == "executed"
-    # All siblings now in terminal state → notify fires once
     notif.notify_booking_decision.assert_called_once()
 
 
-def test_approve_email_fails_when_user_has_no_contact() -> None:
+def test_approve_email_falls_back_to_user_contact_when_advisor_unset() -> None:
+    """Legacy path: if no advisor email was baked into the payload (e.g. the
+    booking was created before ADVISOR_EMAIL was configured), the dispatcher
+    still routes the draft to the user's contact email rather than failing."""
+    action = {
+        "id": "a-2b",
+        "type": "email",
+        "status": "pending",
+        "call_id": "c-1",
+        "payload": {"subject": "Booking", "body": "...", "booking_code": "NL-AB12"},
+    }
+    client, _ = _mock_client_for_dispatcher(
+        actions_by_id={"a-2b": action},
+        calls_by_id={"c-1": {"id": "c-1", "user_id": "u-1", "booking_code": "NL-AB12"}},
+        user_contacts={"u-1": "user@example.com"},
+        sibling_actions=[
+            {"type": "calendar", "status": "pending"},
+            {"type": "sheets", "status": "pending"},
+            {"type": "email", "status": "executed"},
+        ],
+    )
+    captured: dict[str, str | None] = {"to": None}
+
+    async def fake_create_draft(*, payload: dict, to: str) -> dict:
+        captured["to"] = to
+        return {"draftId": "draft-legacy"}
+
+    with (
+        patch("app.services.approvals.dispatcher._supabase", return_value=client),
+        patch("app.services.approvals.dispatcher.mcp_client.create_draft", side_effect=fake_create_draft),
+        patch("app.services.approvals.dispatcher.notifier"),
+    ):
+        result = dispatcher.decide_action("a-2b", decision="approved", decided_by="admin-1")
+
+    assert captured["to"] == "user@example.com"
+    assert result["execution_status"] == "executed"
+
+
+def test_approve_email_fails_when_no_advisor_and_no_user_contact() -> None:
     action = {
         "id": "a-3",
         "type": "email",

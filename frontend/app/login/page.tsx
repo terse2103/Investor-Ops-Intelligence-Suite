@@ -1,8 +1,21 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+
+async function dashboardPathForUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+  return profile?.role === "admin" ? "/admin/pulse" : "/user/chatbot";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +24,27 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // If the user already has a session (e.g. clicked "Launch App" while signed
+  // in), skip the form and send them straight to their dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (data.user) {
+        const target = await dashboardPathForUser(supabase, data.user.id);
+        if (cancelled) return;
+        router.replace(target);
+        return;
+      }
+      setCheckingSession(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, supabase]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,22 +57,10 @@ export default function LoginPage() {
       return;
     }
 
-    if (data.user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profile?.role === "admin") {
-        router.push("/admin/pulse");
-      } else {
-        router.push("/user/chatbot");
-      }
-    } else {
-      router.push("/user/chatbot");
-    }
-    
+    const target = data.user
+      ? await dashboardPathForUser(supabase, data.user.id)
+      : "/user/chatbot";
+    router.push(target);
     router.refresh();
   }
 
@@ -98,6 +120,42 @@ export default function LoginPage() {
           </Link>
         </div>
 
+        {checkingSession ? (
+          <div
+            className="glass-card"
+            style={{
+              padding: 36,
+              textAlign: "center",
+              fontSize: 14,
+              color: "var(--text-secondary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 10,
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              style={{ animation: "spin 0.8s linear infinite" }}
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray="31.416"
+                strokeDashoffset="10"
+              />
+            </svg>
+            Checking session…
+          </div>
+        ) : (
+        <>
         {/* Card */}
         <div className="glass-card" style={{ padding: 36 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)" }}>
@@ -206,6 +264,8 @@ export default function LoginPage() {
             ← Back to home
           </Link>
         </p>
+        </>
+        )}
       </div>
 
       <style>{`

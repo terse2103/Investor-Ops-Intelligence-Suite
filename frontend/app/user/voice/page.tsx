@@ -2,15 +2,22 @@
 import { useEffect, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
 import { api } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
 
 interface VoiceContext {
   themes: string[];
+  booking_code: string;
   variables: {
     top_theme_1: string;
     top_theme_2: string;
     top_theme_3: string;
     themes_joined: string;
     themes_count: string;
+    today_date_iso: string;
+    today_weekday: string;
+    today_human: string;
+    next_3_business_days_human: string;
+    booking_code: string;
   };
 }
 
@@ -75,7 +82,7 @@ export default function VoicePage() {
   }, []);
 
   async function startCall() {
-    if (!context || !vapiRef.current) return;
+    if (!vapiRef.current) return;
     if (!VAPI_ASSISTANT_ID) {
       setError("NEXT_PUBLIC_VAPI_ASSISTANT_ID is not set in the frontend env.");
       return;
@@ -83,8 +90,25 @@ export default function VoicePage() {
     setError(null);
     setTranscript([]);
     try {
+      // Resolve the signed-in user's UUID; the post-call webhook needs it to
+      // look up notification email and attribute the call. Without this,
+      // calls.user_id stays null and approve-email fails with "no recipient".
+      const { data: { user } } = await createClient().auth.getUser();
+      if (!user) {
+        setError("You must be signed in to start a call.");
+        return;
+      }
+      // Pull a fresh context per call: each call needs a unique booking_code
+      // so the assistant doesn't repeat the same NL-XXXX across calls. Cached
+      // page-load context would let a second call reuse the first call's code.
+      const ctx = await api<VoiceContext>("/api/voice/context");
+      setContext(ctx);
       await vapiRef.current.start(VAPI_ASSISTANT_ID, {
-        variableValues: context.variables,
+        variableValues: ctx.variables,
+        // Echo booking_code in metadata so the post-call webhook persists the
+        // same NL-XXXX code the assistant just read out on the call instead
+        // of regenerating a different one.
+        metadata: { user_id: user.id, booking_code: ctx.booking_code },
       });
     } catch (e) {
       setError(`Failed to start call: ${e instanceof Error ? e.message : String(e)}`);
@@ -104,7 +128,7 @@ export default function VoicePage() {
     <div style={{ padding: "32px 28px", maxWidth: 920 }}>
       <header style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 4px" }}>
-          Voice Agent
+          🎙️ Voice Agent
         </h1>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
           Book a 30-minute advisor consultation. Theme-aware greeting, IST scheduling,

@@ -25,6 +25,9 @@ log = logging.getLogger(__name__)
 
 PULSE_WINDOW_WEEKS = 10  # matches scraper R-SCRAPE3 window
 MAX_REVIEWS_FOR_PULSE = 200
+# 4x the default RAG budget: pulse JSON is ~1.5K tokens and adaptive thinking
+# burns several K more on review clustering. 2K leaves zero room for text.
+PULSE_MAX_TOKENS = 16384
 
 PULSE_SYSTEM_PROMPT = """\
 You are the Investor Ops & Intelligence Suite Pulse Generator.
@@ -35,17 +38,18 @@ Rules (strict):
 2. Pick the TOP 3 themes by review count.
 3. Select EXACTLY 3 verbatim quotes from real reviews (one per top theme if possible).
 4. Write a pulse note of AT MOST 250 words covering the top 3 themes and their trends.
-5. List EXACTLY 3 product action ideas (concrete, product-team-facing).
-6. Output JSON only, matching this schema exactly:
+5. List EXACTLY 3 product action ideas. Each action MUST be a single concise, imperative bullet (≤15 words), not a paragraph. Start with a verb (e.g. "Add", "Fix", "Surface", "Reduce"). No multi-sentence rationale.
+6. Keep each theme "summary" to ONE short sentence (≤20 words). The combined themes (name + summary) + quotes + actions text shown to admins MUST be ≤ 250 words total. Trim summaries and actions before exceeding this cap; this is a hard limit, not a target.
+7. Output JSON only, matching this schema exactly:
    {
      "themes": [
-       {"name": "Theme Name", "review_count": N, "summary": "one sentence"},
-       {"name": "Theme Name", "review_count": N, "summary": "one sentence"},
-       {"name": "Theme Name", "review_count": N, "summary": "one sentence"}
+       {"name": "Theme Name", "review_count": N, "summary": "one sentence ≤20 words"},
+       {"name": "Theme Name", "review_count": N, "summary": "one sentence ≤20 words"},
+       {"name": "Theme Name", "review_count": N, "summary": "one sentence ≤20 words"}
      ],
      "quotes": ["verbatim quote 1", "verbatim quote 2", "verbatim quote 3"],
      "pulse_note": "≤250-word text",
-     "actions": ["action 1", "action 2", "action 3"]
+     "actions": ["short imperative bullet 1", "short imperative bullet 2", "short imperative bullet 3"]
    }
 
 Do not include any text outside the JSON block.\
@@ -65,6 +69,36 @@ def _supabase() -> Client:
     if _client is None:
         _client = create_client(settings.supabase_url, settings.supabase_service_role_key)
     return _client
+
+
+def _visible_word_count(pulse: dict) -> int:
+    """Words across the admin-visible content: theme names + summaries + quotes + actions.
+
+    Mirrors what the Weekly Pulse page actually renders (the pulse_note is
+    hidden from the UI but checked separately by R-PULSE4). Numeric fields
+    like review_count are excluded; they're chrome, not prose.
+    """
+    chunks: list[str] = []
+
+    for t in pulse.get("themes") or []:
+        if not isinstance(t, dict):
+            continue
+        name = str(t.get("name", "")).strip()
+        summary = str(t.get("summary", "")).strip()
+        if name:
+            chunks.append(name)
+        if summary:
+            chunks.append(summary)
+
+    for q in pulse.get("quotes") or []:
+        if isinstance(q, str) and q.strip():
+            chunks.append(q.strip())
+
+    for a in pulse.get("actions") or []:
+        if isinstance(a, str) and a.strip():
+            chunks.append(a.strip())
+
+    return sum(len(c.split()) for c in chunks)
 
 
 def _validate_pulse(pulse: dict) -> list[str]:
@@ -98,6 +132,13 @@ def _validate_pulse(pulse: dict) -> list[str]:
     if not isinstance(pulse_note, str) or len(pulse_note.split()) > 250:
         word_count = len(pulse_note.split()) if isinstance(pulse_note, str) else 0
         errors.append(f"R-PULSE4: pulse note is {word_count} words (max 250)")
+
+    visible_words = _visible_word_count(pulse)
+    if visible_words > 250:
+        errors.append(
+            f"R-PULSE7: themes+quotes+actions combined is {visible_words} words (max 250); "
+            "tighten theme summaries and action bullets"
+        )
 
     return errors
 
@@ -202,7 +243,11 @@ async def generate_pulse() -> dict:
 
 def _generate_and_validate(system_prompt: str, user_content: str) -> tuple[dict, list[str]]:
     """Call the LLM and validate. Returns (pulse, violations). Sync; wrap in to_thread."""
-    raw = complete_text(system_prompt=system_prompt, user_content=user_content)
+    raw = complete_text(
+        system_prompt=system_prompt,
+        user_content=user_content,
+        max_tokens=PULSE_MAX_TOKENS,
+    )
     try:
         pulse = _parse_json_response(raw)
     except ValueError as exc:

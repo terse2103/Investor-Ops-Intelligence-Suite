@@ -1,23 +1,30 @@
-// Session refresh + role gating. Called by the root middleware.
+// Session refresh + role gating. Called by the root proxy.
+//
+// Next 16 note: do NOT mutate `request.cookies` and do NOT recreate the
+// response inside the supabase `setAll` callback. Doing either causes the
+// response to be silently rejected by Next 16's router, which surfaces as
+// a 404 for every protected route. We keep one `NextResponse.next()`
+// instance, write Supabase's refreshed session cookies onto its
+// `response.cookies`, and return that single response.
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next();
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return response;
+  }
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
           );

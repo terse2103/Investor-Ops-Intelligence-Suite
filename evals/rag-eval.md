@@ -67,7 +67,7 @@ Each case scores:
 
 **Expected sources cited:**
 - https://www.indmoney.com/mutual-funds/nippon-india-short-duration-fund-direct-plan-growth-plan-2268 (M1 factsheet — specific exit load value)
-- https://groww.in/p/exit-load-in-mutual-funds (M2 fee_scenario — generic explainer)
+- https://www.indmoney.com/blog/mutual-funds/exit-load-mutual-funds-explained (M2 fee_scenario — generic explainer)
 
 **Faithfulness rubric:** Must state the actual exit load percentage and trigger window from the factsheet, AND give a generic 1-2 sentence explanation of exit load grounded in the explainer doc. No invented numbers.
 

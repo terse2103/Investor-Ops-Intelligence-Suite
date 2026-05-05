@@ -6,6 +6,8 @@ is the single source of truth for those.
 
 Order them roughly top-to-bottom; later steps depend on earlier ones.
 
+> Step-by-step deployment is in `docs/superpowers/plans/2026-05-05-deployment.md`. This doc covers the manual external-account setup that the deploy plan assumes is already done.
+
 ---
 
 ## 1. Provision external accounts
@@ -18,7 +20,7 @@ Order them roughly top-to-bottom; later steps depend on earlier ones.
 | **Google Cloud** | Calendar + Sheets APIs (post-approval execution) | A service-account JSON (or OAuth) |
 | **Resend** (or pick another provider in `core/notifier.py`) | One email per booking decision (R-APPROVE4) | API key + verified `from` address |
 | **GitHub** | Repo + Actions cron for weekly scrape and daily corpus refresh | Repo with secrets `BACKEND_URL`, `SCRAPE_SHARED_SECRET`, `CORPUS_REFRESH_SECRET` |
-| **Render** | Backend deployment (free tier is fine for the demo) | One web service pointed at `backend/`, env vars set per the list below |
+| **Hugging Face Spaces** | Backend deployment (free CPU basic, 16GB RAM, no card required) | One Docker SDK Space; Dockerfile + Space secrets per `docs/superpowers/plans/2026-05-05-deployment.md` |
 | **Vercel** | Frontend deployment | Project pointed at `frontend/` |
 
 If you skip Google APIs and/or Gmail MCP, fall back to the cut-line in
@@ -29,21 +31,26 @@ fallback path" out loud.
 
 ---
 
-## 2. Run the Supabase migration
+## 2. Run the Supabase migrations
 
 1. Open the Supabase SQL Editor.
 2. Paste the entirety of `supabase/migrations/0001_init.sql` and run.
-3. In the Auth settings, create at least two users:
+3. Paste the entirety of `supabase/migrations/0002_auto_user_contacts.sql`
+   and run. This extends the signup trigger so every new user gets a
+   `user_contacts` row populated from `auth.users.email` (the approval
+   dispatcher needs this to resolve a recipient on email-action approval).
+   The migration also backfills existing users.
+4. In the Auth settings, create at least two users:
    - one regular user (your test email);
    - one admin (set `app_metadata.role = 'admin'` via the SQL Editor:
      `update auth.users set raw_app_meta_data = jsonb_set(coalesce(raw_app_meta_data, '{}'), '{role}', '"admin"') where email = '<your-admin-email>';`).
-4. Confirm RLS is on for every table (`select tablename from pg_tables where schemaname = 'public'` then check `select rowsecurity from pg_class where relname = '<table>'`).
+5. Confirm RLS is on for every table (`select tablename from pg_tables where schemaname = 'public'` then check `select rowsecurity from pg_class where relname = '<table>'`).
 
 ---
 
 ## 3. Configure environment variables
 
-### Backend (`backend/.env` for local, Render env for prod)
+### Backend (`backend/.env` for local, HF Space secrets for prod)
 
 ```dotenv
 # Core
@@ -51,6 +58,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 SUPABASE_URL=https://<project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 FRONTEND_URL=https://<your-vercel-app>.vercel.app
+# Optional: regex matched against Origin header for additional allowed origins
+# (e.g., Vercel preview deploys). Leave blank in local dev.
+FRONTEND_ORIGIN_REGEX=
 
 # Scraper + corpus refresh
 SCRAPE_SHARED_SECRET=<random-32-char-string>

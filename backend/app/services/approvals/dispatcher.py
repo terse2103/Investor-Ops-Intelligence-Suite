@@ -16,7 +16,7 @@ from typing import Any
 from supabase import Client, create_client
 
 from app.config import settings
-from app.core import google_api, mcp_client, notifier
+from app.core import audit, google_api, mcp_client, notifier
 
 log = logging.getLogger(__name__)
 
@@ -65,11 +65,29 @@ def _get_call(call_id: str) -> dict[str, Any] | None:
 
 
 def _all_actions_for_call(call_id: str) -> list[dict[str, Any]]:
+    """All pending_actions for a call, including payload.
+
+    Payload is needed so the notifier can pull `start_iso` from the calendar
+    action and render the IST slot in the user's confirmation email.
+    """
     resp = (
         _supabase()
         .table("pending_actions")
-        .select("type,status")
+        .select("type,status,payload")
         .eq("call_id", call_id)
+        .execute()
+    )
+    return resp.data or []
+
+
+def _pending_actions_for_call(call_id: str) -> list[dict[str, Any]]:
+    """Full rows for every still-pending action on a call."""
+    resp = (
+        _supabase()
+        .table("pending_actions")
+        .select("*")
+        .eq("call_id", call_id)
+        .eq("status", "pending")
         .execute()
     )
     return resp.data or []
@@ -80,6 +98,12 @@ def _execute_action(action: dict[str, Any], to_email: str | None) -> tuple[str, 
 
     Returns (status, provider_response, error_message).
     status is one of: 'executed', 'failed'.
+
+    Email actions: the post-call handler sets `payload.to` to the advisor's
+    inbox so the Gmail draft lands there with the topic/slot/market context.
+    `to_email` (the booking user's contact email) is only used as a legacy
+    fallback when ADVISOR_EMAIL is unset; the user gets their own confirmation
+    via core/notifier.py once all three actions reach a terminal state.
     """
     kind = action.get("type")
     payload = action.get("payload") or {}
@@ -91,9 +115,14 @@ def _execute_action(action: dict[str, Any], to_email: str | None) -> tuple[str, 
             resp = google_api.append_booking_row(payload=payload)
             return "executed", _truncate(resp), None
         if kind == "email":
-            if not to_email:
-                return "failed", None, "no recipient email configured for booking user"
-            resp = asyncio.run(mcp_client.create_draft(payload=payload, to=to_email))
+            recipient = (payload.get("to") or "").strip() or to_email
+            if not recipient:
+                return (
+                    "failed",
+                    None,
+                    "no recipient email: ADVISOR_EMAIL is unset and the booking user has no contact email",
+                )
+            resp = asyncio.run(mcp_client.create_draft(payload=payload, to=recipient))
             return "executed", _truncate(resp), None
         return "failed", None, f"unknown action type: {kind}"
     except Exception as exc:
@@ -136,8 +165,56 @@ def _user_email_for_call(call: dict[str, Any] | None) -> str | None:
     return rows[0]["email"] if rows else None
 
 
+def _apply_decision_to_action(
+    action: dict[str, Any],
+    *,
+    decision: str,
+    decided_by: str | None,
+    to_email: str | None,
+) -> dict[str, Any]:
+    """Apply a decision to a single pending action.
+
+    Performs the DB status update and (on approve) executes the downstream side
+    effect plus the audit row. Does NOT call _maybe_notify — the caller decides
+    when notification gating fires (once per action vs. once per booking).
+    """
+    action_id = action["id"]
+    now = datetime.now(timezone.utc).isoformat()
+    update_payload: dict[str, Any] = {
+        "status": decision,
+        "decided_at": now,
+        "decided_by": decided_by,
+    }
+
+    audit_kwargs: dict[str, Any] | None = None
+    exec_status: str | None = None
+
+    if decision == "approved":
+        exec_status, provider_response, err = _execute_action(action, to_email)
+        update_payload["status"] = "executed" if exec_status == "executed" else "failed"
+        update_payload["executed_at"] = now
+        audit_kwargs = {
+            "pending_action_id": action_id,
+            "status": "ok" if exec_status == "executed" else "failed",
+            "provider_response": provider_response,
+            "error_message": err,
+        }
+    # rejected: no execution, no audit row (only successful/failed runs are audited).
+
+    _supabase().table("pending_actions").update(update_payload).eq("id", action_id).execute()
+    if audit_kwargs is not None:
+        audit.record_action(_supabase(), **audit_kwargs)
+
+    return {
+        "action_id": action_id,
+        "type": action.get("type"),
+        "decision": decision,
+        "execution_status": exec_status,
+    }
+
+
 def decide_action(action_id: str, *, decision: str, decided_by: str | None) -> dict[str, Any]:
-    """Apply admin decision; on approve, run the downstream action.
+    """Apply admin decision to ONE action; on approve, run the downstream action.
 
     Returns a result dict for the API response.
     """
@@ -150,42 +227,57 @@ def decide_action(action_id: str, *, decision: str, decided_by: str | None) -> d
     if action.get("status") != "pending":
         raise ValueError(f"action {action_id} is already {action.get('status')}")
 
-    now = datetime.now(timezone.utc).isoformat()
-    update_payload: dict[str, Any] = {
-        "status": decision,
-        "decided_at": now,
-        "decided_by": decided_by,
-    }
-
-    audit_row: dict[str, Any] | None = None
-    exec_status: str | None = None
-
+    to_email: str | None = None
     if decision == "approved":
         call = _get_call(action["call_id"])
         to_email = _user_email_for_call(call)
-        exec_status, provider_response, err = _execute_action(action, to_email)
-        update_payload["status"] = "executed" if exec_status == "executed" else "failed"
-        update_payload["executed_at"] = now
-        audit_row = {
-            "pending_action_id": action_id,
-            "status": "ok" if exec_status == "executed" else "failed",
-            "provider_response": provider_response,
-            "error_message": err,
-        }
-    else:
-        # rejected: no execution, no audit row (only successful/failed runs are audited).
-        pass
 
-    _supabase().table("pending_actions").update(update_payload).eq("id", action_id).execute()
-    if audit_row is not None:
-        _supabase().table("action_audit").insert(audit_row).execute()
-
+    result = _apply_decision_to_action(
+        action, decision=decision, decided_by=decided_by, to_email=to_email
+    )
     notification = _maybe_notify(action["call_id"])
 
     return {
         "action_id": action_id,
         "decision": decision,
-        "execution_status": exec_status,
+        "execution_status": result["execution_status"],
+        "notification": notification,
+    }
+
+
+def decide_call_actions(
+    call_id: str, *, decision: str, decided_by: str | None
+) -> dict[str, Any]:
+    """Apply ONE admin decision to every pending action on a booking.
+
+    Calendar hold, Sheets row, and Gmail draft fire under a single approve/reject
+    so the admin doesn't decide them three times. Notification gating still runs
+    exactly once after all per-action updates land.
+    """
+    if decision not in VALID_DECISIONS:
+        raise ValueError(f"decision must be one of {VALID_DECISIONS}")
+
+    pending = _pending_actions_for_call(call_id)
+    if not pending:
+        raise ValueError(f"no pending actions for call {call_id}")
+
+    to_email: str | None = None
+    if decision == "approved":
+        call = _get_call(call_id)
+        to_email = _user_email_for_call(call)
+
+    results = [
+        _apply_decision_to_action(
+            a, decision=decision, decided_by=decided_by, to_email=to_email
+        )
+        for a in pending
+    ]
+    notification = _maybe_notify(call_id)
+
+    return {
+        "call_id": call_id,
+        "decision": decision,
+        "results": results,
         "notification": notification,
     }
 

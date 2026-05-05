@@ -87,6 +87,34 @@ def test_validate_pulse_rejects_long_note() -> None:
     assert any("R-PULSE4" in e for e in errors)
 
 
+def test_validate_pulse_rejects_combined_content_over_250_words() -> None:
+    """R-PULSE7: themes (name + summary) + quotes + actions combined ≤ 250
+    words. The Weekly Pulse page renders all three together; bloated summaries
+    or paragraph-style actions push the page past the budget."""
+    pulse = _valid_pulse()
+    pulse["actions"] = [" ".join(["filler"] * 100)] * 3  # ~300 words across 3 actions
+    errors = _validate_pulse(pulse)
+    assert any("R-PULSE7" in e for e in errors)
+
+
+def test_validate_pulse_accepts_combined_content_at_exactly_250() -> None:
+    """Boundary check: exactly 250 words in the visible content is valid."""
+    pulse = _valid_pulse()
+    # Strip everything else first so we control the count precisely.
+    pulse["themes"] = [
+        {"name": "T", "review_count": 1, "summary": ""},
+        {"name": "T", "review_count": 1, "summary": ""},
+        {"name": "T", "review_count": 1, "summary": ""},
+    ]
+    pulse["quotes"] = ["", "", ""]
+    pulse["actions"] = ["x"] * 3
+    # 3 (theme names) + 0 (summaries) + 0 (quotes) + 3 (actions) = 6 baseline.
+    # Pad the first action to bring the total to exactly 250.
+    pulse["actions"][0] = " ".join(["w"] * (250 - 6 + 1))
+    errors = _validate_pulse(pulse)
+    assert not any("R-PULSE7" in e for e in errors)
+
+
 def test_validate_pulse_rejects_missing_theme_keys() -> None:
     pulse = _valid_pulse()
     pulse["themes"][0] = {"name": "broken"}  # missing review_count

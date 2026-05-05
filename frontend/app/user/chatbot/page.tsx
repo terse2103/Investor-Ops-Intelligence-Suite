@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import type { ReactNode } from "react";
 import { api } from "@/lib/api";
 
 // --- Types ---
@@ -25,7 +26,7 @@ function uid() {
 }
 
 const DISCLAIMER =
-  "This chatbot provides factual information only. It cannot give investment advice, compare schemes, or predict returns. Every answer is sourced directly from the indexed corpus.";
+  "This chatbot provides factual information only. It cannot give investment advice, compare schemes, or predict returns.";
 
 const MF_SCHEMES = [
   "Nippon India ELSS Tax Saver Fund",
@@ -124,44 +125,26 @@ export default function ChatbotPage() {
           padding: "18px 28px",
           borderBottom: "1px solid var(--border-subtle)",
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
+          gap: 16,
           background: "var(--bg-surface)",
         }}
       >
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
             🧠 RAG Chatbot
           </h1>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "2px 0 0" }}>
-            Facts-only Q&amp;A · Nippon India mutual fund corpus
+          <p
+            role="note"
+            aria-label="Disclaimer"
+            style={{ fontSize: 12, color: "var(--text-secondary)", margin: "4px 0 0", lineHeight: 1.5, maxWidth: 760 }}
+          >
+            {DISCLAIMER}
           </p>
         </div>
-        <span className="badge badge-brand">Pillar A — Smart-Sync KB</span>
+        <span className="badge badge-brand" style={{ flexShrink: 0 }}>Smart-Sync KB</span>
       </header>
-
-      {/* Disclaimer banner */}
-      <div
-        style={{
-          flexShrink: 0,
-          margin: "0 28px",
-          marginTop: 16,
-          padding: "10px 16px",
-          borderRadius: 10,
-          background: "rgba(234, 179, 8, 0.08)",
-          border: "1px solid rgba(234, 179, 8, 0.2)",
-          display: "flex",
-          gap: 10,
-          alignItems: "flex-start",
-        }}
-        role="note"
-        aria-label="Disclaimer"
-      >
-        <span style={{ fontSize: 14, flexShrink: 0 }}>⚠️</span>
-        <p style={{ fontSize: 12, color: "#f6d860", margin: 0, lineHeight: 1.5 }}>
-          {DISCLAIMER}
-        </p>
-      </div>
 
       {/* Messages area */}
       <div
@@ -312,52 +295,85 @@ function EmptyState({ onSuggestion }: { onSuggestion: (q: string) => void }) {
   return (
     <div
       className="fade-up"
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 40 }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        textAlign: "center",
+        paddingTop: 64,
+        paddingBottom: 48,
+        gap: 36,
+        maxWidth: 640,
+        margin: "0 auto",
+        width: "100%",
+      }}
     >
-      <div style={{ fontSize: 56, marginBottom: 16 }}>🧠</div>
-      <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 8px" }}>
-        Smart-Sync Knowledge Base
-      </h2>
-      <p style={{ fontSize: 14, color: "var(--text-secondary)", maxWidth: 460, lineHeight: 1.6, marginBottom: 24 }}>
-        Ask factual questions about specific Nippon India mutual fund schemes
-        or general fee/metric concepts. Every answer is cited from the indexed
-        corpus, no investment advice, ever.
-      </p>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+        <div
+          style={{
+            width: 88,
+            height: 88,
+            borderRadius: 22,
+            background: "linear-gradient(135deg, rgba(47,100,248,0.20), rgba(167,139,250,0.18))",
+            border: "1px solid var(--border-subtle)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 44,
+            boxShadow: "0 12px 32px -16px rgba(47,100,248,0.45)",
+          }}
+        >
+          🧠
+        </div>
+        <h2 style={{ fontSize: 26, fontWeight: 700, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.01em" }}>
+          Smart-Sync Knowledge Base
+        </h2>
+        <p style={{ fontSize: 15, color: "var(--text-secondary)", maxWidth: 520, lineHeight: 1.7, margin: 0 }}>
+          Ask factual questions about specific Nippon India mutual fund schemes
+          or general fee/metric concepts. Every answer is cited from the indexed
+          corpus, no investment advice, ever.
+        </p>
+      </div>
+
       <CoverageCard />
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 520, marginTop: 24 }}>
-        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 560 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>
           Try a question
         </p>
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            onClick={() => onSuggestion(s)}
-            style={{
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: 10,
-              padding: "10px 16px",
-              textAlign: "left",
-              cursor: "pointer",
-              color: "var(--text-secondary)",
-              fontSize: 13,
-              transition: "all 0.15s",
-              fontFamily: "Inter, sans-serif",
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.background = "var(--bg-elevated)";
-              (e.target as HTMLButtonElement).style.color = "var(--text-primary)";
-              (e.target as HTMLButtonElement).style.borderColor = "var(--brand-500)";
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.background = "var(--bg-surface)";
-              (e.target as HTMLButtonElement).style.color = "var(--text-secondary)";
-              (e.target as HTMLButtonElement).style.borderColor = "var(--border-subtle)";
-            }}
-          >
-            {s}
-          </button>
-        ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => onSuggestion(s)}
+              style={{
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: 12,
+                padding: "12px 18px",
+                textAlign: "left",
+                cursor: "pointer",
+                color: "var(--text-secondary)",
+                fontSize: 13,
+                lineHeight: 1.5,
+                transition: "all 0.15s",
+                fontFamily: "Inter, sans-serif",
+              }}
+              onMouseEnter={(e) => {
+                (e.target as HTMLButtonElement).style.background = "var(--bg-elevated)";
+                (e.target as HTMLButtonElement).style.color = "var(--text-primary)";
+                (e.target as HTMLButtonElement).style.borderColor = "var(--brand-500)";
+              }}
+              onMouseLeave={(e) => {
+                (e.target as HTMLButtonElement).style.background = "var(--bg-surface)";
+                (e.target as HTMLButtonElement).style.color = "var(--text-secondary)";
+                (e.target as HTMLButtonElement).style.borderColor = "var(--border-subtle)";
+              }}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -369,24 +385,60 @@ function CoverageCard() {
       className="glass-card"
       style={{
         width: "100%",
-        maxWidth: 520,
-        padding: "14px 16px",
+        maxWidth: 560,
+        padding: 22,
         textAlign: "left",
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 14,
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      <CoverageColumn
-        icon="📈"
-        title="MF schemes"
-        items={MF_SCHEMES}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: -50,
+          right: -50,
+          width: 180,
+          height: 180,
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(47,100,248,0.18) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }}
       />
-      <CoverageColumn
-        icon="💰"
-        title="Fee scenarios"
-        items={FEE_SCENARIOS}
-      />
+      <p
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          color: "var(--text-muted)",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          margin: "0 0 14px",
+          position: "relative",
+        }}
+      >
+        What this corpus covers
+      </p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 18,
+          position: "relative",
+        }}
+      >
+        <CoverageColumn
+          icon="📈"
+          title="MF schemes"
+          accent="rgba(47,100,248,0.18)"
+          items={MF_SCHEMES}
+        />
+        <CoverageColumn
+          icon="💰"
+          title="Fee scenarios"
+          accent="rgba(167,139,250,0.20)"
+          items={FEE_SCENARIOS}
+        />
+      </div>
     </div>
   );
 }
@@ -394,26 +446,44 @@ function CoverageCard() {
 function CoverageColumn({
   icon,
   title,
+  accent,
   items,
 }: {
   icon: string;
   title: string;
+  accent: string;
   items: string[];
 }) {
   return (
     <div>
-      <p
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: "var(--text-muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.07em",
-          margin: "0 0 6px",
-        }}
-      >
-        {icon} {title}
-      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 7,
+            background: accent,
+            border: "1px solid var(--border-subtle)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            flexShrink: 0,
+          }}
+        >
+          {icon}
+        </span>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "var(--text-primary)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {title}
+        </span>
+      </div>
       <ul
         style={{
           margin: 0,
@@ -421,18 +491,32 @@ function CoverageColumn({
           listStyle: "none",
           display: "flex",
           flexDirection: "column",
-          gap: 4,
+          gap: 6,
         }}
       >
         {items.map((item) => (
           <li
             key={item}
             style={{
-              fontSize: 12,
+              fontSize: 12.5,
               color: "var(--text-secondary)",
-              lineHeight: 1.4,
+              lineHeight: 1.5,
+              paddingLeft: 10,
+              position: "relative",
             }}
           >
+            <span
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 8,
+                width: 4,
+                height: 4,
+                borderRadius: "50%",
+                background: "var(--text-muted)",
+              }}
+            />
             {item}
           </li>
         ))}
@@ -511,15 +595,14 @@ function AssistantBubble({ msg }: { msg: Message }) {
             background: msg.error
               ? "rgba(239,68,68,0.07)"
               : isRefusal
-              ? "rgba(234,179,8,0.07)"
-              : "var(--bg-surface)",
-            border: `1px solid ${
-              msg.error
+                ? "rgba(234,179,8,0.07)"
+                : "var(--bg-surface)",
+            border: `1px solid ${msg.error
                 ? "rgba(239,68,68,0.2)"
                 : isRefusal
-                ? "rgba(234,179,8,0.2)"
-                : "var(--border-subtle)"
-            }`,
+                  ? "rgba(234,179,8,0.2)"
+                  : "var(--border-subtle)"
+              }`,
             borderRadius: "0 14px 14px 14px",
             padding: "14px 18px",
             fontSize: 14,
@@ -545,20 +628,60 @@ function AssistantBubble({ msg }: { msg: Message }) {
             }}
           >
             {msg.citations && msg.citations.length > 0 && (
-              <div>
-                <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>Source: </span>
-                {msg.citations.map((url) => (
+              msg.citations.length === 1 ? (
+                <div>
+                  <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>Source: </span>
                   <a
-                    key={url}
-                    href={url}
+                    href={msg.citations[0]}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "var(--brand-400)", textDecoration: "underline", overflowWrap: "break-word" }}
                   >
-                    {url}
+                    {msg.citations[0]}
                   </a>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>
+                    Sources ({msg.citations.length}):
+                  </span>
+                  {msg.citations.map((url, idx) => (
+                    <div
+                      key={url}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "flex-start",
+                        paddingLeft: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: "var(--text-secondary)",
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          minWidth: 16,
+                        }}
+                      >
+                        {idx + 1}.
+                      </span>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "var(--brand-400)",
+                          textDecoration: "underline",
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {url}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
             {msg.lastUpdated && (
               <div>
@@ -573,6 +696,55 @@ function AssistantBubble({ msg }: { msg: Message }) {
   );
 }
 
+// Renders **bold** spans (Markdown's only formatting the LLM is asked to emit).
+// Anything else is left as plain text so the body never displays raw `**`.
+function renderInline(text: string, keyPrefix = "i"): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const re = /\*\*([^*]+)\*\*/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  let n = 0;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > cursor) {
+      nodes.push(text.slice(cursor, match.index));
+    }
+    nodes.push(<strong key={`${keyPrefix}-${n++}`}>{match[1]}</strong>);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+type AnswerBlock =
+  | { type: "bullet"; content: string }
+  | { type: "para"; content: string };
+
+// Group raw answer lines into bullets and paragraphs. A bullet starts on a
+// line that begins with `-`, `*`, or `•`; subsequent non-bullet lines are
+// folded back into the previous bullet so multi-line bullets don't get
+// shredded into adjacent <li>s (the original bug: continuation lines became
+// their own bullets, making it impossible to tell where a point ended).
+function parseAnswer(text: string): AnswerBlock[] {
+  const lines = text.split("\n");
+  const blocks: AnswerBlock[] = [];
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim()) continue;
+    const bullet = line.match(/^\s*[-•*]\s+(.*)$/);
+    if (bullet) {
+      blocks.push({ type: "bullet", content: bullet[1].trim() });
+      continue;
+    }
+    const last = blocks[blocks.length - 1];
+    if (last && last.type === "bullet") {
+      last.content += " " + line.trim();
+    } else {
+      blocks.push({ type: "para", content: line.trim() });
+    }
+  }
+  return blocks;
+}
+
 function FormattedAnswer({ text, isRefusal }: { text: string; isRefusal: boolean }) {
   if (isRefusal) {
     return (
@@ -583,19 +755,66 @@ function FormattedAnswer({ text, isRefusal }: { text: string; isRefusal: boolean
     );
   }
 
-  // Render bullet lists nicely
-  const parts = text.split("\n").filter(Boolean);
-  if (parts.length > 1 && parts.some((p) => p.startsWith("•") || p.startsWith("-") || p.startsWith("*"))) {
-    return (
-      <ul style={{ margin: 0, padding: "0 0 0 20px", display: "flex", flexDirection: "column", gap: 4 }}>
-        {parts.map((part, i) => (
-          <li key={i} style={{ color: "var(--text-primary)" }}>
-            {part.replace(/^[•\-\*]\s*/, "")}
-          </li>
-        ))}
-      </ul>
-    );
+  const blocks = parseAnswer(text);
+  const hasBullets = blocks.some((b) => b.type === "bullet");
+
+  // Mixed content (bullets + paragraphs): render paragraphs as standalone <p>
+  // and group consecutive bullets into a single <ul>. Tailwind 4 Preflight
+  // resets list-style to none, so we set listStyleType explicitly.
+  if (hasBullets) {
+    const out: ReactNode[] = [];
+    let buffer: AnswerBlock[] = [];
+    const flushBullets = () => {
+      if (buffer.length === 0) return;
+      out.push(
+        <ul
+          key={`ul-${out.length}`}
+          style={{
+            margin: 0,
+            padding: "0 0 0 22px",
+            listStyleType: "disc",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          {buffer.map((b, i) => (
+            <li
+              key={i}
+              style={{ color: "var(--text-primary)", lineHeight: 1.65, paddingLeft: 4 }}
+            >
+              {renderInline(b.content, `b${out.length}-${i}`)}
+            </li>
+          ))}
+        </ul>,
+      );
+      buffer = [];
+    };
+    blocks.forEach((b, i) => {
+      if (b.type === "bullet") {
+        buffer.push(b);
+      } else {
+        flushBullets();
+        out.push(
+          <p key={`p-${i}`} style={{ margin: out.length === 0 ? 0 : "8px 0 0" }}>
+            {renderInline(b.content, `p${i}`)}
+          </p>,
+        );
+      }
+    });
+    flushBullets();
+    return <>{out}</>;
   }
 
-  return <>{text}</>;
+  // No bullets: render each line as its own paragraph so the visual line
+  // breaks the model emitted are preserved (otherwise React collapses \n).
+  return (
+    <>
+      {blocks.map((b, i) => (
+        <p key={i} style={{ margin: i === 0 ? 0 : "8px 0 0" }}>
+          {renderInline(b.content, `t${i}`)}
+        </p>
+      ))}
+    </>
+  );
 }

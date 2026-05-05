@@ -20,11 +20,12 @@ from langdetect import detect
 from supabase import Client, create_client
 
 from app.config import settings
+from app.core import audit
 from app.core.pii import redact
 
 log = logging.getLogger(__name__)
 
-INDMONEY_APP_ID = "in.indmoney"  # Google Play app ID for INDMoney
+INDMONEY_APP_ID = "in.indwealth"  # Google Play app ID for INDmoney (legacy IndWealth package)
 REVIEW_WINDOW_WEEKS = 10  # midpoint of 8-12 week spec window
 
 _client: Client | None = None
@@ -36,6 +37,12 @@ def _supabase() -> Client:
     if _client is None:
         _client = create_client(settings.supabase_url, settings.supabase_service_role_key)
     return _client
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """google-play-scraper returns naive datetimes (UTC). Make them tz-aware
+    so they compare cleanly with our UTC-aware cutoff."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
 def _is_valid_review(text: str) -> bool:
@@ -96,7 +103,7 @@ async def scrape_reviews(trigger_source: str = "manual") -> dict:
         cutoff = _cutoff_date()
         window_filtered = [
             r for r in raw_reviews
-            if r.get("at") is not None and r["at"] >= cutoff
+            if r.get("at") is not None and _as_utc(r["at"]) >= cutoff
         ]
         log.info(
             "After date window filter (%d weeks): %d reviews remain",
@@ -128,7 +135,7 @@ async def scrape_reviews(trigger_source: str = "manual") -> dict:
                 "user_name": r.get("userName"),
                 "rating": rating,
                 "content": clean_content,
-                "posted_at": r["at"].isoformat(),
+                "posted_at": _as_utc(r["at"]).isoformat(),
             })
 
         # 5. Upsert into Supabase `reviews` table with dedup on play_review_id (R-SCRAPE1)
@@ -148,21 +155,26 @@ async def scrape_reviews(trigger_source: str = "manual") -> dict:
 
         # 6. Write audit row to scrape_runs (real schema)
         finished_at = datetime.now(timezone.utc)
-        audit_row = {
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "status": "ok",
-            "review_count": accepted,
-            "filtered_out_count": filtered_out,
-            "trigger_source": trigger_source,
-            "error_message": None,
-        }
 
         def _insert_audit() -> None:
-            _supabase().table("scrape_runs").insert(audit_row).execute()
+            audit.record_scrape_run(
+                _supabase(),
+                started_at=started_at.isoformat(),
+                finished_at=finished_at.isoformat(),
+                status="ok",
+                review_count=accepted,
+                filtered_out_count=filtered_out,
+                trigger_source=trigger_source,
+                error_message=None,
+            )
 
         await asyncio.to_thread(_insert_audit)
-        log.info("Audit row written: %s", audit_row)
+        log.info(
+            "scrape_runs audit row written (status=ok, review_count=%d, filtered_out=%d, trigger=%s)",
+            accepted,
+            filtered_out,
+            trigger_source,
+        )
 
         # API/test contract: keep the legacy result dict shape.
         return {
@@ -174,18 +186,18 @@ async def scrape_reviews(trigger_source: str = "manual") -> dict:
     except Exception as exc:
         # Best-effort error audit row; do not mask the original failure.
         finished_at = datetime.now(timezone.utc)
-        error_row = {
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "status": "error",
-            "review_count": 0,
-            "filtered_out_count": 0,
-            "trigger_source": trigger_source,
-            "error_message": str(exc),
-        }
         try:
             def _insert_error_audit() -> None:
-                _supabase().table("scrape_runs").insert(error_row).execute()
+                audit.record_scrape_run(
+                    _supabase(),
+                    started_at=started_at.isoformat(),
+                    finished_at=finished_at.isoformat(),
+                    status="error",
+                    review_count=0,
+                    filtered_out_count=0,
+                    trigger_source=trigger_source,
+                    error_message=str(exc),
+                )
 
             await asyncio.to_thread(_insert_error_audit)
         except Exception as audit_exc:  # pragma: no cover - defensive

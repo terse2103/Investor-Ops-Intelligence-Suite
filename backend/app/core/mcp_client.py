@@ -1,22 +1,21 @@
 """Gmail MCP client. Real Model Context Protocol stdio transport.
 
 Spawns the configured Gmail MCP server as a subprocess (stdio) and invokes the
-`create_draft` tool with the email payload. The user must run an MCP-compliant
+`draft_email` tool with the email payload. The user must run an MCP-compliant
 Gmail server; the command + args are configured via env vars:
 
   GMAIL_MCP_COMMAND  e.g. "npx" or "python"
-  GMAIL_MCP_ARGS     comma-separated args, e.g. "-y,@modelcontextprotocol/server-gmail"
+  GMAIL_MCP_ARGS     comma-separated args, e.g. "-y,@gongrzhe/server-gmail-autoauth-mcp"
 
-The tool name (`create_draft`) and its argument shape match common Gmail MCP
-servers; if the chosen server differs, override `GMAIL_MCP_TOOL_NAME` or
-adjust `_build_tool_args`.
+The tool name and argument shape target @gongrzhe/server-gmail-autoauth-mcp,
+whose `draft_email` tool accepts {to: string[], subject, body}. If the chosen
+server differs, adjust `DEFAULT_TOOL_NAME` and `_build_tool_args`.
 
 This client is invoked only after the admin approves an email pending_action
 (R-APPROVE1). No drafts are created without approval.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -24,7 +23,7 @@ from app.config import settings
 
 log = logging.getLogger(__name__)
 
-DEFAULT_TOOL_NAME = "create_draft"
+DEFAULT_TOOL_NAME = "draft_email"
 
 
 def _command_args() -> tuple[str, list[str]]:
@@ -36,12 +35,23 @@ def _command_args() -> tuple[str, list[str]]:
 
 
 def _build_tool_args(*, payload: dict[str, Any], to: str) -> dict[str, Any]:
-    """Map our internal email payload to the MCP tool argument shape."""
-    return {
-        "to": to,
+    """Map our internal email payload to the MCP tool argument shape.
+
+    @gongrzhe/server-gmail-autoauth-mcp's draft_email expects ``to`` as a list.
+    When ``payload.mime_type`` is ``text/html`` we mark the draft as HTML so
+    the styled card renders in Gmail instead of showing as raw markup. The
+    plaintext fallback in ``payload.text`` is not consumed by this MCP server
+    today; it stays in the persisted payload as an audit trail.
+    """
+    args: dict[str, Any] = {
+        "to": [to],
         "subject": payload.get("subject", ""),
         "body": payload.get("body", ""),
     }
+    mime_type = (payload.get("mime_type") or "").strip().lower()
+    if mime_type == "text/html":
+        args["mimeType"] = "text/html"
+    return args
 
 
 async def create_draft(*, payload: dict[str, Any], to: str) -> dict[str, Any]:
@@ -83,8 +93,3 @@ def _extract_result(result: Any) -> dict[str, Any]:
             for item in content
         ]
     return out
-
-
-def create_draft_sync(*, payload: dict[str, Any], to: str) -> dict[str, Any]:
-    """Sync convenience for callers that aren't already in an event loop."""
-    return asyncio.run(create_draft(payload=payload, to=to))

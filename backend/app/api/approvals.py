@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from app.core.auth import require_admin
-from app.services.approvals.dispatcher import decide_action, list_pending
+from app.services.approvals.dispatcher import (
+    decide_action,
+    decide_call_actions,
+    list_pending,
+)
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +36,7 @@ async def decide_endpoint(
     payload: DecisionIn,
     user: dict = Depends(require_admin),
 ) -> dict:
-    """Approve or reject a pending action.
+    """Approve or reject a single pending action.
 
     On approve, dispatches by action type:
       calendar / sheets → core/google_api.py
@@ -53,6 +57,39 @@ async def decide_endpoint(
         ) from exc
     except Exception as exc:
         log.exception("approval decide failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Approval dispatch failed: {exc}",
+        ) from exc
+    return result
+
+
+@router.post("/call/{call_id}/decide")
+async def decide_call_endpoint(
+    call_id: str,
+    payload: DecisionIn,
+    user: dict = Depends(require_admin),
+) -> dict:
+    """Approve or reject ALL pending actions for a booking in one shot.
+
+    Calendar hold, Sheets row, and Gmail draft fire under a single decision so
+    the admin only approves a booking once instead of three times. The notifier
+    still fires exactly once, after every per-action update has landed.
+    """
+    try:
+        result = await asyncio.to_thread(
+            decide_call_actions,
+            call_id,
+            decision=payload.status,
+            decided_by=user.get("id"),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        log.exception("approval batch decide failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Approval dispatch failed: {exc}",

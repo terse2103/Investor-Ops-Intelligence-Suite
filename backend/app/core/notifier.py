@@ -5,6 +5,10 @@ their call have been decided (any mix of approve/reject). Provider is Resend by
 default (HTTP API only, no SDK). The provider is pluggable via the `_send_email`
 function: swap to SendGrid / SES / SMTP by replacing that single function.
 
+The body states topic + IST slot date/time + booking code. Market context is
+deliberately omitted here — that goes only in the advisor's Gmail draft (built
+in services/voice/post_call.py).
+
 The notifier reads the user's email from `user_contacts`. If the user never
 saved a notification email, we still write a `notifications_sent` row with
 status=`skipped_no_contact` so the audit is complete.
@@ -18,6 +22,9 @@ import httpx
 from supabase import Client, create_client
 
 from app.config import settings
+from app.core import audit
+from app.core.email_template import render_card
+from app.services.voice.post_call import format_slot_ist
 
 log = logging.getLogger(__name__)
 
@@ -54,14 +61,40 @@ def _user_email(user_id: str | None) -> str | None:
     return rows[0].get("email")
 
 
-def _decision_summary(actions: list[dict[str, Any]]) -> str:
-    """Map (type, status) tuples into a one-line summary for the email body."""
-    parts: list[str] = []
-    by_type = {a.get("type"): a.get("status") for a in actions}
-    for kind in ("calendar", "sheets", "email"):
-        status = by_type.get(kind, "unknown")
-        parts.append(f"{kind}={status}")
-    return "; ".join(parts)
+def _slot_iso_from_actions(actions: list[dict[str, Any]]) -> str:
+    """Pull the ISO slot off the calendar action's payload (best-effort)."""
+    for a in actions:
+        if a.get("type") != "calendar":
+            continue
+        payload = a.get("payload") or {}
+        slot = payload.get("start_iso") or payload.get("slot_iso") or ""
+        if slot:
+            return str(slot)
+    # Sheets action also stores slot_iso; fall back to it for completeness.
+    for a in actions:
+        if a.get("type") != "sheets":
+            continue
+        payload = a.get("payload") or {}
+        slot = payload.get("slot_iso") or ""
+        if slot:
+            return str(slot)
+    return ""
+
+
+def _verdict(actions: list[dict[str, Any]]) -> str:
+    """One of: 'approved', 'rejected', 'partially approved' based on action statuses.
+
+    Treats 'executed' as approved (the dispatcher promotes 'approved' → 'executed'
+    after the side-effect runs) and 'failed' as approved-but-broken (still counts
+    toward the user-facing 'approved' verdict — the booking decision was yes).
+    """
+    approved_states = {"approved", "executed", "failed"}
+    approved_count = sum(1 for a in actions if a.get("status") in approved_states)
+    if approved_count == len(actions):
+        return "approved"
+    if approved_count == 0:
+        return "rejected"
+    return "partially approved"
 
 
 def build_email(
@@ -70,30 +103,65 @@ def build_email(
     actions: list[dict[str, Any]],
     topic: str | None,
 ) -> dict[str, str]:
-    """Craft the subject + body for the user-facing notification."""
-    summary = _decision_summary(actions)
-    approved_count = sum(1 for a in actions if a.get("status") == "approved")
-    if approved_count == len(actions):
-        verb = "approved"
-    elif approved_count == 0:
-        verb = "rejected"
+    """Craft the subject, html, and text for the user-facing booking confirmation.
+
+    Body stays minimal: outcome, topic, IST date/time, booking code. No
+    market context, no per-action breakdown: those belong in admin/audit
+    surfaces, not the user inbox.
+
+    Returns a dict with keys: subject, html, text. The html field is sent
+    via Resend's `html` field; text is the multipart fallback for clients
+    that strip HTML.
+    """
+    verdict = _verdict(actions)
+    slot_human = format_slot_ist(_slot_iso_from_actions(actions))
+
+    subject = f"Booking {booking_code}: {verdict}"
+
+    if verdict == "rejected":
+        title = "Booking Rejected"
+        rows: list[tuple[str, str]] = [
+            ("Topic", topic or "general"),
+            ("Requested slot", slot_human),
+            ("Booking code", booking_code),
+        ]
+        body_block = (
+            f"Your advisor consultation booking ({booking_code}) has been "
+            f"rejected.\n\n"
+            "Please book again from the Voice Agent if you'd like another slot."
+        )
     else:
-        verb = "partially approved"
+        title = (
+            "Booking Confirmed"
+            if verdict == "approved"
+            else "Booking Partially Approved"
+        )
+        rows = [
+            ("Topic", topic or "general"),
+            ("Date / time", slot_human),
+            ("Booking code", booking_code),
+        ]
+        body_block = (
+            f"Your advisor consultation booking has been {verdict}.\n\n"
+            "An advisor will reach out shortly using the contact details on file."
+        )
 
-    subject = f"Booking {booking_code}: {verb}"
-    body = (
-        f"Hi,\n\n"
-        f"Your advisor consultation booking ({booking_code}) has been {verb}.\n"
-        f"Topic: {topic or 'general'}\n"
-        f"Decision summary: {summary}\n\n"
-        f"You will receive a follow-up from the advisor team if applicable.\n\n"
-        f"Investor Ops"
+    html_body, text_body = render_card(
+        title=title,
+        badge=booking_code,
+        rows=rows,
+        body=body_block,
+        footer="Investor Ops",
     )
-    return {"subject": subject, "body": body}
+    return {"subject": subject, "html": html_body, "text": text_body}
 
 
-def _send_email(*, to: str, subject: str, body: str) -> dict[str, Any]:
-    """Provider call. Resend HTTP API; swap for SendGrid/SES if needed."""
+def _send_email(*, to: str, subject: str, html: str, text: str) -> dict[str, Any]:
+    """Provider call. Resend HTTP API; swap for SendGrid/SES if needed.
+
+    Sends html + text together (Resend accepts both fields and assembles
+    a multipart message), so plaintext-only inboxes get the text fallback.
+    """
     api_key = settings.resend_api_key or settings.email_api_key
     if not api_key:
         raise RuntimeError("RESEND_API_KEY (or EMAIL_API_KEY) not configured")
@@ -106,7 +174,13 @@ def _send_email(*, to: str, subject: str, body: str) -> dict[str, Any]:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        json={"from": sender, "to": [to], "subject": subject, "text": body},
+        json={
+            "from": sender,
+            "to": [to],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        },
         timeout=20.0,
     )
     resp.raise_for_status()
@@ -137,7 +211,12 @@ def notify_booking_decision(
 
     msg = build_email(booking_code=booking_code, actions=actions, topic=topic)
     try:
-        provider_response = _send_email(to=to, subject=msg["subject"], body=msg["body"])
+        provider_response = _send_email(
+            to=to,
+            subject=msg["subject"],
+            html=msg["html"],
+            text=msg["text"],
+        )
     except httpx.HTTPError as exc:
         log.warning("notifier.provider_error booking=%s err=%s", booking_code, exc)
         _audit(
@@ -172,13 +251,12 @@ def _audit(
 ) -> None:
     """Insert a notifications_sent audit row."""
     try:
-        _supabase().table("notifications_sent").insert(
-            {
-                "user_id": user_id,
-                "call_id": call_id,
-                "status": status,
-                "provider_response": provider_response,
-            }
-        ).execute()
+        audit.record_notification(
+            _supabase(),
+            user_id=user_id,
+            call_id=call_id,
+            status=status,
+            provider_response=provider_response,
+        )
     except Exception as exc:
         log.warning("notifications_sent audit insert failed: %s", exc)

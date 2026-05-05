@@ -26,10 +26,10 @@ Indexed by the startup ingest in `backend/app/main.py` via
 Same ingest path, category `fee_scenario`. Powers Smart-Sync answers that
 combine a fund-specific value with a fee/metric concept.
 
-7. https://groww.in/p/expense-ratio
-8. https://groww.in/blog/asset-under-management
-9. https://groww.in/p/exit-load-in-mutual-funds
-10. https://groww.in/p/nav
+7. https://www.indmoney.com/blog/mutual-funds/what-is-expense-ratio
+8. https://www.indmoney.com/blog/mutual-funds/what-is-aum-in-mutual-funds
+9. https://www.indmoney.com/blog/mutual-funds/exit-load-mutual-funds-explained
+10. https://www.indmoney.com/blog/mutual-funds/what-is-nav-in-mutual-funds
 
 ## 3. Pulse data source (1)
 

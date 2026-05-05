@@ -1,11 +1,17 @@
 """Tests for voice context loader + /api/voice/context endpoint."""
 from __future__ import annotations
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from app.services.voice.context import load_current_themes, to_vapi_variables
+from app.services.voice.context import (
+    IST,
+    load_current_themes,
+    to_vapi_date_variables,
+    to_vapi_variables,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -35,6 +41,53 @@ def test_to_vapi_variables_with_no_themes_returns_empty_strings() -> None:
     assert out["top_theme_1"] == ""
     assert out["themes_joined"] == ""
     assert out["themes_count"] == "0"
+
+
+# ---------------------------------------------------------------------------
+# Date anchors (to_vapi_date_variables)
+# ---------------------------------------------------------------------------
+
+
+def test_date_variables_saturday_skips_weekend() -> None:
+    # Saturday 2026-05-02 IST -> next 3 BDs are Mon May 4, Tue May 5, Wed May 6
+    saturday = datetime(2026, 5, 2, 9, 0, tzinfo=IST)
+    out = to_vapi_date_variables(saturday)
+    assert out["today_date_iso"] == "2026-05-02"
+    assert out["today_weekday"] == "Saturday"
+    assert out["today_human"] == "Saturday, May 2"
+    assert out["next_3_business_days_human"] == (
+        "Monday, May 4; Tuesday, May 5; Wednesday, May 6"
+    )
+
+
+def test_date_variables_friday_rolls_into_following_week() -> None:
+    # Friday 2026-05-01 IST -> next 3 BDs are Mon May 4, Tue May 5, Wed May 6
+    friday = datetime(2026, 5, 1, 23, 0, tzinfo=IST)
+    out = to_vapi_date_variables(friday)
+    assert out["today_weekday"] == "Friday"
+    assert out["next_3_business_days_human"] == (
+        "Monday, May 4; Tuesday, May 5; Wednesday, May 6"
+    )
+
+
+def test_date_variables_midweek_picks_next_three_weekdays() -> None:
+    # Tuesday 2026-05-05 -> Wed May 6, Thu May 7, Fri May 8
+    tuesday = datetime(2026, 5, 5, 12, 0, tzinfo=IST)
+    out = to_vapi_date_variables(tuesday)
+    assert out["today_weekday"] == "Tuesday"
+    assert out["next_3_business_days_human"] == (
+        "Wednesday, May 6; Thursday, May 7; Friday, May 8"
+    )
+
+
+def test_date_variables_crosses_month_boundary() -> None:
+    # Thursday 2026-04-30 -> Fri May 1, Mon May 4, Tue May 5
+    thursday = datetime(2026, 4, 30, 12, 0, tzinfo=IST)
+    out = to_vapi_date_variables(thursday)
+    assert out["today_human"] == "Thursday, April 30"
+    assert out["next_3_business_days_human"] == (
+        "Friday, May 1; Monday, May 4; Tuesday, May 5"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -138,9 +191,30 @@ def test_voice_context_endpoint_returns_themes_and_variables(
     assert resp.status_code == 200
     body = resp.json()
     assert body["themes"] == ["Login Issues", "Slow Withdrawals", "KYC Problems"]
-    assert body["variables"]["top_theme_1"] == "Login Issues"
-    assert body["variables"]["top_theme_2"] == "Slow Withdrawals"
-    assert body["variables"]["themes_count"] == "3"
+    vars_ = body["variables"]
+    assert vars_["top_theme_1"] == "Login Issues"
+    assert vars_["top_theme_2"] == "Slow Withdrawals"
+    assert vars_["themes_count"] == "3"
+    # Date anchors must always be populated so the assistant prompt never
+    # interpolates a literal `{{today_*}}` to the caller.
+    for key in ("today_date_iso", "today_weekday", "today_human", "next_3_business_days_human"):
+        assert vars_[key], f"{key} should be a non-empty string"
+    # A fresh booking_code is minted per call; agent reads it via {{booking_code}}.
+    import re
+
+    assert re.fullmatch(r"NL-[A-Z0-9]{4}", vars_["booking_code"])
+    assert body["booking_code"] == vars_["booking_code"]
+
+
+def test_voice_context_endpoint_mints_unique_booking_code_per_call(
+    client: TestClient,
+) -> None:
+    """Two back-to-back calls must get distinct booking codes; otherwise the
+    assistant repeats the same NL-XXXX across calls (the bug this fixes)."""
+    with patch("app.api.voice.load_current_themes", return_value=[]):
+        codes = {client.get("/api/voice/context").json()["booking_code"] for _ in range(20)}
+    # 20 random 4-char alphanumeric draws: at most one collision is plausible.
+    assert len(codes) >= 19
 
 
 def test_voice_context_endpoint_returns_empty_strings_with_no_pulse(
@@ -151,5 +225,8 @@ def test_voice_context_endpoint_returns_empty_strings_with_no_pulse(
     assert resp.status_code == 200
     body = resp.json()
     assert body["themes"] == []
-    assert body["variables"]["top_theme_1"] == ""
-    assert body["variables"]["themes_count"] == "0"
+    vars_ = body["variables"]
+    assert vars_["top_theme_1"] == ""
+    assert vars_["themes_count"] == "0"
+    # Date anchors are independent of pulse availability.
+    assert vars_["today_weekday"], "today_weekday should always be set"

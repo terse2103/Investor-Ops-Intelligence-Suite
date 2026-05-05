@@ -119,7 +119,7 @@ export default function PulsePage() {
               margin: 0,
             }}
           >
-            Top 3 themes, 3 verbatim quotes, ≤250-word note, 3 action ideas.
+            Top 3 themes, 3 verbatim quotes, and 3 action ideas (≤250 words total).
             {generated ? ` Last generated: ${generated}` : ""}
           </p>
         </div>
@@ -245,33 +245,6 @@ export default function PulsePage() {
             </div>
           </Section>
 
-          <Section title="Pulse note">
-            <div
-              className="glass-card"
-              style={{
-                padding: "16px 18px",
-                fontSize: 13,
-                lineHeight: 1.6,
-                color: "var(--text-primary)",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {pulse.note_text}
-            </div>
-            {pulse.word_count !== undefined && (
-              <div
-                style={{
-                  fontSize: 11,
-                  color: "var(--text-muted)",
-                  marginTop: 4,
-                  textAlign: "right",
-                }}
-              >
-                {pulse.word_count} words
-              </div>
-            )}
-          </Section>
-
           <Section title="Verbatim quotes">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {pulse.quotes.map((q, i) => (
@@ -294,13 +267,14 @@ export default function PulsePage() {
           </Section>
 
           <Section title="Action ideas">
-            <ol
+            <ul
               style={{
                 margin: 0,
                 paddingLeft: 20,
+                listStyleType: "disc",
                 display: "flex",
                 flexDirection: "column",
-                gap: 6,
+                gap: 8,
                 fontSize: 13,
                 color: "var(--text-primary)",
               }}
@@ -310,7 +284,7 @@ export default function PulsePage() {
                   {a}
                 </li>
               ))}
-            </ol>
+            </ul>
           </Section>
         </>
       )}
