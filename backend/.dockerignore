@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local env files (use HF Space secrets, not files)
+.env
+.env.*
+!.env.example
+
+# Local data
+chroma_data/
+*.sqlite
+*.db
+*.log
+
+# Tests (not needed in runtime image)
+tests/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Git
+.git/
+.gitignore

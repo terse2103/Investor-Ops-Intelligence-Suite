@@ -15,13 +15,11 @@ class Settings(BaseSettings):
     vapi_webhook_secret: str = ""
     vapi_assistant_id: str = ""
     frontend_url: str = "http://localhost:3000"
+    frontend_origin_regex: str = ""
     scrape_shared_secret: str = ""
     corpus_refresh_secret: str = ""
-    email_provider: str = ""
     email_api_key: str = ""
     email_from: str = ""
-    google_client_id: str = ""
-    google_client_secret: str = ""
     google_sa_json: str = ""
     google_sa_json_path: str = ""
     google_calendar_id: str = ""
@@ -30,6 +28,7 @@ class Settings(BaseSettings):
     gmail_mcp_command: str = ""
     gmail_mcp_args: str = ""
     resend_api_key: str = ""
+    advisor_email: str = ""
 
 
 settings = Settings()
