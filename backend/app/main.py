@@ -19,15 +19,23 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Populate the RAG index on startup if empty (Render free tier disk is ephemeral).
+    # Populate the RAG index on startup. Container disks under HF Spaces and
+    # Render free tier are ephemeral, so a cold container starts with an
+    # empty index. Bootstrap from the shipped JSONL fixture first (works in
+    # geo-blocked environments where indmoney.com returns 403); only fall
+    # back to network ingest for sources still missing afterwards.
     # Skip in test mode to keep TestClient instantiation fast and offline.
     if os.getenv("SKIP_STARTUP_INGEST") != "1":
         try:
             from app.core.retriever import get_retriever
+            from app.services.rag.bootstrap import bootstrap_from_jsonl
             from app.services.rag.corpus import ALL_SOURCES
             from app.services.rag.ingest import ingest_sources
 
             retriever = get_retriever()
+            if retriever.count() == 0:
+                bootstrap_from_jsonl(retriever)
+
             indexed = retriever.indexed_urls()
             missing = [src for src in ALL_SOURCES if src["url"] not in indexed]
             if missing:
