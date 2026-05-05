@@ -39,6 +39,7 @@ backend/chroma_data/
 # Misc
 .cache/
 *.log
+*.tsbuildinfo
 
 # Local Claude Code settings (per-machine)
 .claude/settings.local.json

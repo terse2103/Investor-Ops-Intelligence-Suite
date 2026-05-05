@@ -1,7 +1,7 @@
 """Google Calendar + Sheets clients used by the approval dispatcher.
 
 Both APIs use a service-account credential. The SA JSON can be supplied either:
-  - inline via `GOOGLE_SA_JSON` (preferred on Render: no filesystem persistence)
+  - inline via `GOOGLE_SA_JSON` (preferred on HF Spaces: no filesystem persistence)
   - on disk via `GOOGLE_SA_JSON_PATH` (preferred for local dev)
 
 Calendar: `create_tentative_event` writes to `GOOGLE_CALENDAR_ID` with status

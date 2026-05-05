@@ -23,8 +23,8 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 - [x] `docs/Rules.md` drafted
 - [x] `docs/EdgeCases.md` drafted
 - [x] `docs/Evals.md` drafted
-- [x] Lock Day-1 decisions: RAG stack + monorepo layout + Render vs Railway
-- [x] Provision accounts: Supabase, Vapi, Vercel, Render, Google Cloud (OAuth consent), GitHub repo
+- [x] Lock Day-1 decisions: RAG stack + monorepo layout + deploy host (later switched to Hugging Face Spaces)
+- [x] Provision accounts: Supabase, Vapi, Vercel, Hugging Face Spaces, Google Cloud (OAuth consent), GitHub repo
 - [x] Scaffold monorepo: Next.js (`frontend/`), FastAPI (`backend/`), `evals/`, `docs/`
 - [x] Supabase: create all 10 tables with RLS + seed admin/user accounts
 - [x] Login flow working end-to-end (Next.js → Supabase Auth → role-gated routes)

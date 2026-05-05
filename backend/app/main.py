@@ -19,11 +19,11 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Populate the RAG index on startup. Container disks under HF Spaces and
-    # Render free tier are ephemeral, so a cold container starts with an
-    # empty index. Bootstrap from the shipped JSONL fixture first (works in
-    # geo-blocked environments where indmoney.com returns 403); only fall
-    # back to network ingest for sources still missing afterwards.
+    # Populate the RAG index on startup. Container disks on HF Spaces are
+    # ephemeral, so a cold container starts with an empty index. Bootstrap
+    # from the shipped JSONL fixture first (works in geo-blocked environments
+    # where indmoney.com returns 403); only fall back to network ingest for
+    # sources still missing afterwards.
     # Skip in test mode to keep TestClient instantiation fast and offline.
     if os.getenv("SKIP_STARTUP_INGEST") != "1":
         try:

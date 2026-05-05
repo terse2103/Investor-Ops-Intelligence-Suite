@@ -123,10 +123,13 @@ def _execute_action(action: dict[str, Any], to_email: str | None) -> tuple[str, 
                     "no recipient email: ADVISOR_EMAIL is unset and the booking user has no contact email",
                 )
             if not settings.gmail_mcp_command:
-                # Cut-line: GMAIL_MCP_COMMAND is intentionally unset in this
-                # deployment (no MCP server hosted). Treat as a successful
-                # no-op rather than a provider failure so the booking flow
-                # completes cleanly; the audit row records the skip.
+                # Graceful fallback when GMAIL_MCP_COMMAND is unset (e.g.,
+                # local dev, or a deployed environment that hasn't been
+                # configured for MCP). Production HF Spaces images bundle
+                # the gongrzhe MCP server, but the env var must still be set
+                # for the dispatcher to spawn it. Treat the unset case as a
+                # successful no-op rather than a provider failure; the audit
+                # row records the skip for traceability.
                 log.info(
                     "email skipped for action %s: GMAIL_MCP_COMMAND not configured",
                     action.get("id"),

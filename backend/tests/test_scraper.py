@@ -1,9 +1,8 @@
 """Unit tests for scrape_reviews() in services/pulse/scraper.py."""
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 

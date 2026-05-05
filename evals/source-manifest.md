@@ -70,7 +70,7 @@ combine a fund-specific value with a fee/metric concept.
     https://nextjs.org/docs
 29. React 19 — https://react.dev
 30. FastAPI — https://fastapi.tiangolo.com
-31. Render free web-service tier (deployment target) — https://render.com/docs/free
+31. Hugging Face Spaces (Docker SDK, deployment target) — https://huggingface.co/docs/hub/spaces-sdks-docker
 
 ## 8. Eval fixtures + scoring references (2)
 

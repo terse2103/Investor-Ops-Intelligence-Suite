@@ -94,7 +94,7 @@ EMAIL_FROM=ops@your-domain.com
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-NEXT_PUBLIC_BACKEND_URL=http://localhost:8000   # or your Render URL
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000   # or your HF Space URL
 NEXT_PUBLIC_VAPI_PUBLIC_KEY=<from Vapi dashboard>
 NEXT_PUBLIC_VAPI_ASSISTANT_ID=<from Vapi dashboard>
 ```

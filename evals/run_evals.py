@@ -8,7 +8,7 @@ Scoring model is fixed per docs/Evals.md (40 RAG + 30 Safety + 30 UX = 100).
 
 Usage:
     # 1. Start the backend with all env vars set (Anthropic, Supabase, etc.)
-    # 2. Mint a user JWT and an admin JWT (see docs/Manual.md)
+    # 2. Mint a user JWT and an admin JWT (see docs/to-do_manually.md)
     # 3. Run:
     USER_JWT=...  ADMIN_JWT=...  uv run python evals/run_evals.py
 

@@ -2,7 +2,9 @@
 
 **Date:** 2026-04-22
 **Status:** Approved (high-level); details deferred to future iterations
-**Source docs:** `docs/ProblemStatement.md`, `docs/milestones/M1/M1_PS.md`, `docs/milestones/M2/M2_PS.md`, `docs/milestones/M3/M3_PS.md`, `docs/RandomIdeas.md`
+**Source docs:** `docs/ProblemStatement.md`, `docs/milestones/M1/M1_PS.md`, `docs/milestones/M2/M2_PS.md`, `docs/milestones/M3/M3_PS.md`
+
+> **Note (2026-05-05):** Deploy host was switched from Render to Hugging Face Spaces during execution. References to Render in this spec are historical; current deployment is documented in `docs/superpowers/plans/2026-05-05-deployment.md`.
 
 ## 1. Purpose
 

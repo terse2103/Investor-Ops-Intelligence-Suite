@@ -519,7 +519,9 @@ If CORS errors appear, double-check `FRONTEND_URL` exact match (no trailing slas
 
 ---
 
-## Task 11: Wire GitHub Actions cron secrets
+## Task 11: Wire GitHub Actions cron secrets ~~(DROPPED)~~
+
+> **DROPPED 2026-05-05:** No cron jobs needed for this deploy. The two workflows (`weekly-scrape.yml`, `daily-corpus-refresh.yml`) were disabled in the GitHub Actions UI; the duplicate `scrape.yml` was deleted. Steps below preserved for reference if cron is ever re-enabled.
 
 `.github/workflows/weekly-scrape.yml` and `.github/workflows/daily-corpus-refresh.yml` already reference `${{ secrets.BACKEND_URL }}`. Just supply the secret values.
 
@@ -650,7 +652,9 @@ git push origin main
 
 ---
 
-## Task 15: (Optional) Keep-warm cron
+## Task 15: (Optional) Keep-warm cron ~~(DROPPED)~~
+
+> **DROPPED 2026-05-05:** Deemed unnecessary for the demo cadence. Steps below preserved for reference.
 
 HF Spaces free CPU basic sleeps after a stretch of inactivity. If demo-day cold-start latency matters, add a tiny GitHub Action that pings every 10 minutes during business hours.
 
