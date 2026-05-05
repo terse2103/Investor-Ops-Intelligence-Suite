@@ -149,7 +149,7 @@ Format `NL-XXXX` where XXXX is a 4-char alphanumeric. Read the code to the calle
 Before the email action is queued, the current top 3 themes from the latest pulse are injected into the email body as a "Market Context" snippet. Validator checks the snippet is present in the payload.
 
 ### R-APPROVE3: Every execution produces an audit row
-Every approved action writes to `action_audit` on success or failure, including the provider's response. No silent execution.
+Every approved action writes to `action_audit` (via `core/audit.py`) on success or failure, including the provider's response or error message. No silent execution.
 
 ### R-APPROVE4: Notifications fire once per booking decision
 When the admin has finalized all three `pending_actions` for a booking (any mix of approve/reject), the notifier sends exactly one email to the booking user. Not three (one per action); one.

@@ -82,7 +82,7 @@ LLM produces 2 or 4 action ideas.
 
 ### EC-PULSE-10 : Very short review (≤5 words)
 Review in the scrape batch is 5 words or fewer after whitespace tokenization (e.g., "Good app", "Not working at all").
-→ Rejected by the scrape-time filter per R-PULSE7. Never written to the `reviews` table. `filtered_out_count` on the `scrape_runs` row is incremented.
+→ Rejected by the scrape-time filter per R-PULSE7. Never written to the `reviews` table. Counted in `filtered_out_count` on the `scrape_runs` audit row (where `filtered_out_count = fetched - accepted`).
 
 ---
 

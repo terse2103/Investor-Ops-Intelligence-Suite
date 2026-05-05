@@ -47,12 +47,12 @@ Any two of {RAG @ 36+, Safety @ 30, UX @ 28+} gets you over 90. Safety is non-ne
 
 Eval cases become pytest tests colocated with the service code. Each phase has its own test file:
 
-| Phase | Phase name | Test file | Covers |
+| Phase | Phase name | Test file(s) | Covers |
 |---|---|---|---|
-| 2 | M1 RAG | `backend/tests/test_rag.py` | First 3 RAG eval cases, EC-RAG-1 through EC-RAG-5, 1 safety case (advice refusal) |
-| 3 | M2 Pulse + Fee | `backend/tests/test_pulse.py`, `backend/tests/test_fee.py` | Remaining 2 RAG cases (fee-related), all Pulse UX rubric, EC-PULSE-1 through EC-PULSE-9, EC-FEE-1 through EC-FEE-3 |
-| 4 | M3 Voice | `backend/tests/test_voice.py` | Remaining 2 safety cases (PII refusal in voice, system-prompt exfil), voice theme-mention logic check, EC-VOICE-1 through EC-VOICE-5 |
-| 5 | Pillar C | `backend/tests/test_approvals.py`, `backend/tests/test_mcp.py` | EC-APPROVE-1 through EC-APPROVE-6, EC-NOTIFY-1, notifier dispatch test |
+| 2 | M1 RAG | `backend/tests/test_rag.py`, `backend/tests/test_corpus.py`, `backend/tests/test_retriever_indexed_urls.py`, `backend/tests/test_bootstrap.py`, `backend/tests/test_rag_refresh.py` | First 3 RAG eval cases, EC-RAG-1 through EC-RAG-5, 1 safety case (advice refusal), corpus + retriever integrity |
+| 3 | M2 Pulse + Fee | `backend/tests/test_pulse_generator.py`, `backend/tests/test_pulse_endpoint.py`, `backend/tests/test_scraper.py`, `backend/tests/test_scrape_endpoint.py`, `backend/tests/test_scrape_endpoint_errors.py` | Remaining 2 RAG cases (fee-related), all Pulse UX rubric, EC-PULSE-1 through EC-PULSE-9, scraper R-PULSE7/R-SCRAPE1-3 |
+| 4 | M3 Voice | `backend/tests/test_voice_context.py`, `backend/tests/test_voice_post_call.py` | Remaining 2 safety cases (PII refusal in voice, system-prompt exfil), voice theme-mention logic check, EC-VOICE-1 through EC-VOICE-5, post-call webhook idempotency |
+| 5 | Pillar C | `backend/tests/test_approvals_dispatcher.py`, `backend/tests/test_approvals_endpoint.py`, `backend/tests/test_notifier.py` | EC-APPROVE-1 through EC-APPROVE-6, EC-NOTIFY-1, notifier dispatch test, booking-decision email rendering |
 
 Each phase is only considered "done" when:
 1. Its pytest file passes.

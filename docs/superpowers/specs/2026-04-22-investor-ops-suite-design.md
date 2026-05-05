@@ -4,7 +4,7 @@
 **Status:** Approved (high-level); details deferred to future iterations
 **Source docs:** `docs/ProblemStatement.md`, `docs/milestones/M1/M1_PS.md`, `docs/milestones/M2/M2_PS.md`, `docs/milestones/M3/M3_PS.md`
 
-> **Note (2026-05-05):** Deploy host was switched from Render to Hugging Face Spaces during execution. References to Render in this spec are historical; current deployment is documented in `docs/superpowers/plans/2026-05-05-deployment.md`.
+> **Note (2026-05-05):** Deploy host was switched from Render to Hugging Face Spaces during execution. The tech choices table (§3) has been updated. Current deployment steps are documented in `docs/superpowers/plans/2026-05-05-deployment.md`.
 
 ## 1. Purpose
 
@@ -29,7 +29,7 @@ The suite enforces three product-level integrations across these milestones:
 | Area | Choice | Rationale |
 |---|---|---|
 | Frontend | Next.js (React + TypeScript) on Vercel | Real auth UX, WebSocket support for live approvals, Vapi Web SDK embedding |
-| Backend | FastAPI (Python 3.11+), deployed on Render free web-service tier | Native fit for LLM/RAG/evals work in Python; free without a credit card; auto-deploy from GitHub |
+| Backend | FastAPI (Python 3.11+), deployed on Hugging Face Spaces (Docker SDK, free CPU basic) | Native fit for LLM/RAG/evals work in Python; free without a credit card; 16GB RAM fits torch + sentence-transformers |
 | Repo layout | Flat single monorepo: `/frontend`, `/backend`, `/evals`, `/docs`, `/.github` | Simplest possible; atomic full-stack commits; single GitHub URL for submission |
 | RAG stack | Claude Sonnet 4.6 (LLM, with prompt caching) + HuggingFace `sentence-transformers/all-MiniLM-L6-v2` (local, 384-dim embeddings) + Chroma (local, file-backed vector store) | No embedding/vector-DB API keys needed; fully local except for Claude calls; retriever interface keeps migration to pgvector a small change later |
 | Database + Auth | Supabase (Postgres + Auth with RLS + Storage) | One provider for DB, auth, role separation, and file storage; keeps pgvector door open |
@@ -46,7 +46,7 @@ The suite enforces three product-level integrations across these milestones:
 2. Prompt templates per service.
 3. Evals golden dataset contents and rubric thresholds.
 4. Gmail MCP server selection (self-hosted vs community) and Google OAuth setup covering Calendar API, Sheets API, and Gmail MCP scopes together.
-5. Deployment specifics: secrets management, domains, CI (host chosen: Render).
+5. ~~Deployment specifics: secrets management, domains, CI.~~ Resolved: HF Spaces backend, Vercel frontend. See `docs/superpowers/plans/2026-05-05-deployment.md`.
 6. Error handling policies, retry strategy, observability.
 7. Email notification provider (Resend vs SendGrid vs Supabase SMTP vs other).
 
@@ -108,18 +108,23 @@ One app, three service modules plus a shared core:
 ```
 app/
 ├── services/
-│   ├── rag/     # Pillar A
-│   ├── pulse/   # Pillar B (scraper + pulse generation)
-│   └── voice/   # Pillar C (Vapi webhooks + approvals + API/MCP execution)
+│   ├── rag/       # Pillar A (bootstrap, corpus, ingest, query)
+│   ├── pulse/     # Pillar B (scraper + pulse generation)
+│   ├── voice/     # Pillar C (context + post_call)
+│   └── approvals/ # HITL dispatcher
 ├── core/
-│   ├── llm.py        # Provider-agnostic LLM client
-│   ├── retriever.py  # Pluggable retriever interface
-│   ├── mcp_client.py # MCP protocol client (Gmail only)
-│   ├── google_api.py # Google Calendar + Sheets API clients
-│   ├── notifier.py   # Transactional email dispatch
-│   ├── pii.py        # PII guard
-│   └── audit.py      # Audit logging
-└── api/              # Routers per service
+│   ├── llm.py            # Claude Sonnet 4.6 client (adaptive thinking + prompt caching)
+│   ├── retriever.py      # Chroma + all-MiniLM-L6-v2 retriever
+│   ├── mcp_client.py     # MCP protocol client (Gmail only)
+│   ├── google_api.py     # Google Calendar + Sheets API clients
+│   ├── notifier.py       # Transactional email dispatch (Resend)
+│   ├── pii.py            # PII guard (regex-based)
+│   ├── audit.py          # Audit logging (scrape_runs, action_audit, notifications_sent)
+│   ├── auth.py           # Supabase JWT auth dependency
+│   ├── email_template.py # HTML email renderer for booking notifications
+│   └── limiter.py        # Rate limiting (slowapi)
+├── api/                  # Routers: health, rag, pulse, scrape, voice, approvals, settings
+└── config.py             # pydantic-settings env loader
 ```
 
 Service modules do not import each other; they share only through `core/`. This preserves the option of splitting into separate deployables later.
@@ -152,28 +157,29 @@ Google Calendar API creates tentative advisor holds; Google Sheets API appends b
 
 ```
 evals/
-├── golden-dataset.md        # 5 M1+M2 retrieval test cases
-├── adversarial-prompts.md   # 3 safety refusal cases
-├── tone-rubric.md           # Pulse structure + voice theme-mention checks
-├── run_evals.py             # Hits live endpoints, writes scores
-└── eval-report.md           # Submitted deliverable
+├── rag-eval.md          # 5 M1+M2 retrieval test cases (golden dataset)
+├── safety-eval.md       # 3 adversarial refusal cases (constraint adherence)
+├── ux-eval.md           # Pulse structure rubric + voice theme-mention logic check
+├── run_evals.py         # Hits live endpoints, writes scores
+├── eval-report.md       # Submitted deliverable
+└── source-manifest.md   # 30+ official URLs used across the project
 ```
 
 Not part of the running FastAPI app. Run manually before demo recording and submission.
 
 ## 7. Data Model (tables only; schemas deferred)
 
-- `users` — Supabase Auth, with `role ∈ {user, admin}`.
-- `user_contacts` — User-provided notification email address used by the notifier.
+- `profiles` — Role-bearing extension of `auth.users` (id, role ∈ {user, admin}). Auto-created on signup via trigger.
+- `user_contacts` — User-provided notification email address used by the notifier. Auto-populated from `auth.users.email` via `0002_auto_user_contacts.sql`.
 - `sources` — M1 + M2 corpus (INDMoney pages, fee scenario webpages).
-- `reviews` — Scraped Play Store reviews, deduped on Play review id.
-- `scrape_runs` — Audit row per scrape (timestamp, count, trigger source).
-- `pulses` — Generated weekly pulses (themes, quotes, actions, word count).
-- `current_themes` — Cache of top 3 themes for Vapi agent injection.
-- `calls` — Vapi call metadata (id, intent, transcript, booking code).
-- `pending_actions` — HITL queue (type ∈ {calendar, sheets, email}, payload, status ∈ {pending, approved, rejected, executed}).
+- `reviews` — Scraped Play Store reviews, deduped on `play_review_id`.
+- `scrape_runs` — Audit row per scrape (timestamp, count, `filtered_out_count`, trigger source).
+- `pulses` — Generated weekly pulses (themes, quotes, actions, note_text, word_count).
+- `current_themes` — Singleton cache of top 3 themes for Vapi agent injection.
+- `calls` — Vapi call metadata (id, user_id, intent, transcript, booking_code, status ∈ {in_progress, completed, abandoned}).
+- `pending_actions` — HITL queue (type ∈ {calendar, sheets, email}, payload, status ∈ {pending, approved, rejected, executed, failed}).
 - `action_audit` — Post-approval execution results for both API (Calendar, Sheets) and MCP (Gmail) actions.
-- `notifications_sent` — Audit row per email dispatch (user, status, provider response).
+- `notifications_sent` — Audit row per email dispatch (user, call_id, status ∈ {sent, bounced, provider_error, skipped_no_contact}, provider_response).
 
 ## 8. Core Flows
 
@@ -267,12 +273,12 @@ User-supplied `email` in `user_contacts` is product data, not PII-in-transit. It
 - A11y beyond default framework behavior.
 - Mobile-specific UX (responsive is fine; native apps are not in scope).
 
-## 11. Open Questions for Next Iteration
+## 11. Open Questions (status as of 2026-05-05)
 
-1. Which RAG stack (LLM / embeddings / vector store)?
-2. Which Gmail MCP server (community vs self-hosted), and how is Google OAuth configured to cover Calendar API + Sheets API + Gmail MCP scopes in a single consent?
-3. What is the eval scoring rubric and pass threshold for submission?
-4. What goes into the currently empty `docs/Rules.md`, `docs/EdgeCases.md`, `docs/Evals.md`?
-5. Which advisor(s) are bookable; what are their calendars/availability sources for the demo?
-6. What is the demo data set (which INDMoney schemes for M1; which fee scenarios for M2)?
-7. Should admins also receive notifications (e.g., nightly digest of pending approvals), or is the Approval Center UI the only touchpoint?
+1. ~~Which RAG stack?~~ **Resolved:** Claude Sonnet 4.6 (Anthropic, adaptive thinking + prompt caching) + `sentence-transformers/all-MiniLM-L6-v2` (local, 384-dim) + ChromaDB (in-process, file-backed).
+2. ~~Which Gmail MCP server?~~ **Resolved:** Community MCP server via `GMAIL_MCP_COMMAND` env var. Google Calendar + Sheets use a service account; Gmail MCP uses its own OAuth. See `docs/to-do_manually.md` §5-6.
+3. ~~Eval scoring rubric?~~ **Resolved:** 100 points: RAG=40, Safety=30, UX=30. Target ≥85. See `docs/Evals.md`.
+4. ~~What goes into Rules/EdgeCases/Evals?~~ **Resolved:** All three are fully written. See `docs/Rules.md`, `docs/EdgeCases.md`, `docs/Evals.md`.
+5. ~~Which advisors are bookable?~~ **Resolved:** Single advisor inbox configured via `ADVISOR_EMAIL` env var. Demo uses a test email.
+6. ~~Demo data set?~~ **Resolved:** Nippon India mutual fund schemes (5-10 pages from INDMoney). Fee scenarios are INDMoney fee/metric explainer pages. Corpus is defined in `backend/app/services/rag/corpus.py`.
+7. ~~Admin notifications?~~ **Not implemented.** Admin relies on the Approval Center UI. Out of scope per Section 10.

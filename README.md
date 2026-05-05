@@ -75,8 +75,8 @@ the index is up-to-date; daily refresh keeps it current.
 ```bash
 cd frontend
 cp .env.local.example .env.local
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Visit `http://localhost:3000`. The proxy redirects unauthenticated users to
@@ -102,10 +102,10 @@ Setting environment variables, uploading the Vapi config, running OAuth
 flows, recording the demo, and submitting the capstone are all manual.
 Step-by-step instructions live in [`docs/to-do_manually.md`](./docs/to-do_manually.md).
 
-## Future improvements
+## Deployment
 
-Out-of-plan ideas that would meaningfully improve this codebase live in
-[`docs/suggested_improvements.md`](./docs/suggested_improvements.md).
+Step-by-step deployment instructions (Hugging Face Spaces backend + Vercel
+frontend) live in [`docs/superpowers/plans/2026-05-05-deployment.md`](./docs/superpowers/plans/2026-05-05-deployment.md).
 
 ## Docs index
 
@@ -116,4 +116,4 @@ Out-of-plan ideas that would meaningfully improve this codebase live in
 - [Vapi assistant config](./docs/Vapi.md)
 - [7-day implementation plan](./docs/Plan.md)
 - [Manual to-dos](./docs/to-do_manually.md)
-- [Suggested improvements](./docs/suggested_improvements.md)
+- [Deployment plan](./docs/superpowers/plans/2026-05-05-deployment.md)

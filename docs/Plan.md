@@ -95,9 +95,8 @@ High-level day-by-day to-do list with checkboxes. Tick items off as they land. U
 Pull from these in order, *before* compromising eval quality:
 
 1. Drop `/admin/pulse` "Refresh now" button (keep weekly cron only)
-2. Drop `core/audit.py` niceties (minimal audit only)
-3. Drop Google Sheets API (write bookings to Supabase table instead)
-4. Drop Google Calendar API (write holds to Supabase table instead)
+2. Drop Google Sheets API (write bookings to Supabase table instead)
+3. Drop Google Calendar API (write holds to Supabase table instead)
 
 Do **not** drop any eval case. Safety must stay 30/30.
 

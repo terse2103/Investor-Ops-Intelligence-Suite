@@ -593,7 +593,7 @@ Log in as admin. Open `/admin/pulse`. Click "Refresh now". Expected: the page tr
 
 - [ ] **Step 13.4: Voice call (browser)**
 
-Open `/user/voice` as a regular user. Click the call button. Expected: the assistant greets you with a theme-aware first line. Speak: "Book a 30-minute slot tomorrow at 2pm to discuss tax-saving funds." Expected: the assistant confirms a booking code (format `NL-XXXX`), and a row appears in Supabase `bookings`.
+Open `/user/voice` as a regular user. Click the call button. Expected: the assistant greets you with a theme-aware first line. Speak: "Book a 30-minute slot tomorrow at 2pm to discuss tax-saving funds." Expected: the assistant confirms a booking code (format `NL-XXXX`), and a row appears in Supabase `calls` with `status='completed'`.
 
 - [ ] **Step 13.5: Approval HITL (browser)**
 
@@ -702,7 +702,7 @@ This deployment is complete when ALL of the following are true:
 2. The Vercel production URL renders the login page and a logged-in user can complete a RAG query end-to-end with no CORS errors in the browser console.
 3. The "Weekly Review Scrape" GitHub Action goes green on manual trigger and inserts a `scrape_runs` row in Supabase.
 4. The "Daily corpus refresh" GitHub Action goes green on manual trigger.
-5. A test voice call from `/user/voice` produces a booking code and a Supabase `bookings` row.
+5. A test voice call from `/user/voice` produces a booking code and a Supabase `calls` row.
 6. An admin approval on `/admin/approvals` transitions a row to `executed` (or `rejected`).
 7. `docs/to-do_manually.md` reflects HF Spaces (not Render) and points at this plan file.
 
