@@ -1,10 +1,15 @@
 FROM python:3.11-slim
 
-# System deps for compiled wheels (lxml, chromadb)
+# System deps:
+#  - build-essential, curl: compiled Python wheels (lxml, chromadb)
+#  - nodejs, npm: Gmail MCP server runs as a Node subprocess via npx
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         curl \
-    && rm -rf /var/lib/apt/lists/*
+        nodejs \
+        npm \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g @gongrzhe/server-gmail-autoauth-mcp@latest
 
 # Install uv (pinned for reproducibility)
 COPY --from=ghcr.io/astral-sh/uv:0.5.4 /uv /usr/local/bin/uv
@@ -34,4 +39,8 @@ COPY --chown=user:user . .
 
 EXPOSE 7860
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Entrypoint materializes Gmail OAuth credentials from env vars before starting
+# uvicorn. Credentials are stored in ~/.gmail-mcp/ where the gongrzhe MCP server
+# expects them. Without those env vars set, the dispatcher's MCP-skip path
+# (services/approvals/dispatcher.py) handles the absence gracefully.
+CMD ["sh", "/app/scripts/entrypoint.sh"]
