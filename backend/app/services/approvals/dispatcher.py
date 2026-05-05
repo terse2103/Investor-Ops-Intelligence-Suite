@@ -122,6 +122,24 @@ def _execute_action(action: dict[str, Any], to_email: str | None) -> tuple[str, 
                     None,
                     "no recipient email: ADVISOR_EMAIL is unset and the booking user has no contact email",
                 )
+            if not settings.gmail_mcp_command:
+                # Cut-line: GMAIL_MCP_COMMAND is intentionally unset in this
+                # deployment (no MCP server hosted). Treat as a successful
+                # no-op rather than a provider failure so the booking flow
+                # completes cleanly; the audit row records the skip.
+                log.info(
+                    "email skipped for action %s: GMAIL_MCP_COMMAND not configured",
+                    action.get("id"),
+                )
+                return (
+                    "executed",
+                    {
+                        "skipped": True,
+                        "reason": "GMAIL_MCP_COMMAND not configured",
+                        "would_have_sent_to": recipient,
+                    },
+                    None,
+                )
             resp = asyncio.run(mcp_client.create_draft(payload=payload, to=recipient))
             return "executed", _truncate(resp), None
         return "failed", None, f"unknown action type: {kind}"

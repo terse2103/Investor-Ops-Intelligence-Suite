@@ -303,6 +303,52 @@ def test_approve_email_falls_back_to_user_contact_when_advisor_unset() -> None:
     assert result["execution_status"] == "executed"
 
 
+def test_approve_email_skipped_when_gmail_mcp_unconfigured(monkeypatch) -> None:
+    """When GMAIL_MCP_COMMAND is intentionally blank (deployment cut-line:
+    no MCP server hosted), email actions are recorded as 'executed' with a
+    skip marker in the audit row, not 'failed'. The booking flow stays clean
+    and the user-facing notifier sees an all-approved state."""
+    monkeypatch.setattr(dispatcher.settings, "gmail_mcp_command", "")
+
+    action = {
+        "id": "a-skip",
+        "type": "email",
+        "status": "pending",
+        "call_id": "c-1",
+        "payload": {
+            "subject": "Booking",
+            "body": "...",
+            "booking_code": "NL-SKIP",
+            "to": "advisor@example.com",
+        },
+    }
+    client, tables = _mock_client_for_dispatcher(
+        actions_by_id={"a-skip": action},
+        calls_by_id={"c-1": {"id": "c-1", "user_id": "u-1", "booking_code": "NL-SKIP"}},
+        sibling_actions=[
+            {"type": "calendar", "status": "executed"},
+            {"type": "sheets", "status": "executed"},
+            {"type": "email", "status": "executed"},
+        ],
+    )
+
+    with (
+        patch("app.services.approvals.dispatcher._supabase", return_value=client),
+        patch("app.services.approvals.dispatcher.mcp_client.create_draft") as create_draft_mock,
+        patch("app.services.approvals.dispatcher.notifier") as notif,
+    ):
+        notif.notify_booking_decision.return_value = {"status": "sent"}
+        result = dispatcher.decide_action("a-skip", decision="approved", decided_by="admin-1")
+
+    create_draft_mock.assert_not_called()
+    assert result["execution_status"] == "executed"
+    audit_row = tables["action_audit"].insert.call_args.args[0]
+    assert audit_row["status"] == "ok"
+    assert audit_row["error_message"] is None
+    assert audit_row["provider_response"]["skipped"] is True
+    assert audit_row["provider_response"]["would_have_sent_to"] == "advisor@example.com"
+
+
 def test_approve_email_fails_when_no_advisor_and_no_user_contact() -> None:
     action = {
         "id": "a-3",
